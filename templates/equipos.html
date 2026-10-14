@@ -220,7 +220,7 @@
     </main>
 
     {% if es_tecnico %}
-    <script>
+    <script nonce="{{ csp_nonce }}">
     (function () {
         var caja = document.getElementById('buscar-equipo');
         if (!caja) return;

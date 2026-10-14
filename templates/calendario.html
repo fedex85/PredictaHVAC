@@ -11,7 +11,7 @@
     <form method="get" class="flex items-center gap-2">
         <input type="hidden" name="mes" value="{{ mes_mostrado }}">
         <label for="filtro-tecnico" class="text-xs text-slate-400">Técnico</label>
-        <select id="filtro-tecnico" name="tecnico" onchange="this.form.submit()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white">
+        <select id="filtro-tecnico" name="tecnico" data-autoenviar class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white">
             <option value="">Todos</option>
             {% for t in tecnicos %}<option value="{{ t.id }}"{% if t.id == tecnico_id %} selected{% endif %}>{{ t.get_full_name|default:t.username }}</option>{% endfor %}
         </select>

@@ -60,8 +60,12 @@ sudo systemctl status predicta        # debe estar "active (running)"
 
 ```bash
 sudo cp deploy/nginx-proxy.conf /etc/nginx/snippets/predicta-proxy.conf
-sudo sed 's/TU_DOMINIO/tu.dominio.com/g' deploy/nginx.conf | sudo tee /etc/nginx/sites-available/predicta
+# RUTA_ADMIN = el valor de DJANGO_ADMIN_URL de tu .env; TU_IP_O_VPN = tu IP fija o rango (p. ej. 203.0.113.7 o 10.8.0.0/24)
+sudo sed -e 's/TU_DOMINIO/tu.dominio.com/g' -e 's#RUTA_ADMIN#la-ruta-aleatoria#' -e 's#TU_IP_O_VPN#203.0.113.7#' \
+    deploy/nginx.conf | sudo tee /etc/nginx/sites-available/predicta
 ```
+El panel de Django (`/RUTA_ADMIN/`) solo responde desde la IP/VPN que indiques; para el resto de visitantes Nginx devuelve 403 y la ruta `/admin/` no existe. Las altas, cambios y bajas hechas en el panel quedan en la bitácora de actividad.
+Las subidas de fotos admiten 25 MB; el resto de rutas, 1 MB. Django envía una **Content-Security-Policy** con nonce: si tras una actualización alguna pantalla dejara de funcionar, pon `DJANGO_CSP_MODO=report-only` en el `.env` para diagnosticarlo en la consola del navegador (no lo dejes así).
 El archivo de Nginx limita a 10 intentos/minuto por IP en el inicio de sesión y a 60/minuto en `/api/`, y fija `X-Real-IP` (la IP que registra la bitácora y que usa el bloqueo de Django).
 Como el certificado aún no existe, primero deja solo el bloque `listen 80` y obtén el certificado:
 ```bash

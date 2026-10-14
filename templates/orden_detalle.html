@@ -130,7 +130,7 @@
             </div>
         </form>
         {% endif %}
-        <script>
+        <script nonce="{{ csp_nonce }}">
         (function () {
             var form = document.getElementById('form-ejecucion');
             var estado = document.getElementById('estado-guardado-obs');

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -24,10 +24,11 @@
             .etiqueta { margin: 0; }
         }
     </style>
+    <script src="{% static 'js/ui.js' %}" defer></script>
 </head>
 <body>
     <div class="barra">
-        <button type="button" onclick="window.print()">Imprimir etiqueta</button>
+        <button type="button" data-imprimir>Imprimir etiqueta</button>
         <a href="{% url 'detalle_equipo' equipo.id %}">Volver a la ficha</a>
     </div>
     <p class="aviso">Tamaño de impresión: 6 × 6 cm. En el diálogo de impresión elige escala 100 % y sin márgenes.</p>

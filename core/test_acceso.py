@@ -211,7 +211,7 @@ class SegundoFactorTests(TestCase):
     def test_superusuario_tambien_lo_necesita_y_el_admin_de_django_queda_protegido(self):
         su = get_user_model().objects.create_superuser('root', 'root@ejemplo.com', CLAVE)
         self.client.force_login(su)
-        self.assertTrue(self.client.get('/admin/')['Location'].startswith(reverse('mfa_configurar')))
+        self.assertTrue(self.client.get(reverse('admin:index'))['Location'].startswith(reverse('mfa_configurar')))
 
     def test_configurar_muestra_qr_y_clave_y_no_activa_hasta_confirmar(self):
         self.client.force_login(self.admin)

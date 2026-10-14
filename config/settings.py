@@ -44,7 +44,7 @@ ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
+    'core.admin_config.SitioAdminConfig',  # = django.contrib.admin, con registro de los cambios en la bitácora
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'core.seguridad.CabecerasSeguridadMiddleware',  # CSP con nonce y Permissions-Policy
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -77,6 +78,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.rol',
+                'core.seguridad.csp_nonce',
             ],
         },
     },
@@ -175,6 +177,15 @@ if os.getenv('ALMACENAMIENTO') == 'nube':
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Ruta del panel de administración de Django: no es /admin/ (la primera que prueba cualquier bot). En producción
+# cámbiala por una cadena aleatoria larga en DJANGO_ADMIN_URL y restríngela por IP/VPN en Nginx (ver DEPLOY.md).
+ADMIN_URL = (os.getenv('DJANGO_ADMIN_URL') or 'gestion-interna').strip().strip('/') + '/'
+
+# Content-Security-Policy: 'enforce' (por defecto), 'report-only' (solo avisa en la consola del navegador) u 'off'
+CSP_MODO = os.getenv('DJANGO_CSP_MODO') or 'enforce'
+# Referrer-Policy: no se envía la ruta completa a otros sitios (Django ya lo envía; aquí queda explícito)
+SECURE_REFERRER_POLICY = 'same-origin'
 
 # Control de acceso (A-02, M-03, M-06)
 def _bool_env(nombre, por_defecto):

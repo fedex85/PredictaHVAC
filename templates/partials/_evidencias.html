@@ -103,7 +103,7 @@
 </section>
 
 {% if ed_fotos or ed_firma or ed_firma_tecnico %}
-<script>
+<script nonce="{{ csp_nonce }}">
 // Guardados en curso (autoguardado de campos): la firma espera a que terminen para firmar sobre el resumen definitivo.
 window.pendientes = window.pendientes || [];
 window.rastrear = function (promesa) {

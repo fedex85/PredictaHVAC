@@ -103,7 +103,7 @@
 </div>
 
 {% if ed_checklist or ed_mediciones %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
     var raiz = document.querySelector('[data-autoguardado]');
     if (!raiz) { return; }

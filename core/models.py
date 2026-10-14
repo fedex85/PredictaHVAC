@@ -123,6 +123,7 @@ class RegistroActividad(models.Model):
     MFA_RESTABLECIDO = 'MFA_RESTABLECIDO'
     CLAVE_ENLACE = 'CLAVE_ENLACE'
     CLAVE_CAMBIADA = 'CLAVE_CAMBIADA'
+    ADMIN_DJANGO = 'ADMIN_DJANGO'
     ACCION_CHOICES = [
         (LOGIN, 'Inicio de sesión'),
         (LOGOUT, 'Cierre de sesión'),
@@ -143,6 +144,7 @@ class RegistroActividad(models.Model):
         (MFA_RESTABLECIDO, 'Verificación en dos pasos restablecida'),
         (CLAVE_ENLACE, 'Enlace de contraseña generado'),
         (CLAVE_CAMBIADA, 'Contraseña cambiada'),
+        (ADMIN_DJANGO, 'Cambio desde el panel de administración'),
     ]
 
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,

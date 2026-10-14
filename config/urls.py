@@ -1,10 +1,11 @@
+from django.conf import settings
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from core import acceso, views, views_ordenes as vo
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),
     path('', auth_views.LoginView.as_view(template_name='registration/login.html',
                                           authentication_form=acceso.FormularioAcceso), name='login'),
     path('cuenta/clave/', acceso.CambiarClaveView.as_view(), name='cambiar_clave'),
