@@ -24,13 +24,21 @@ load_dotenv(BASE_DIR / '.env')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
+from django.core.exceptions import ImproperlyConfigured
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-solo-desarrollo')
+# Sin valor de reserva: si falta la variable la aplicación no arranca (falla "cerrada").
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', '')
+if not SECRET_KEY:
+    raise ImproperlyConfigured('Define DJANGO_SECRET_KEY en el archivo .env (mínimo 40 caracteres en producción).')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('1', 'true', 'yes')
+# El modo seguro es el predeterminado: el desarrollo debe activar DEBUG de forma explícita (DJANGO_DEBUG=1 en .env).
+DEBUG = os.getenv('DJANGO_DEBUG', '0').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost,192.168.1.175').split(',') if h.strip()]
+# Vacío por defecto. En desarrollo Django permite localhost; para probar desde el móvil en la red local
+# añade la IP en DJANGO_ALLOWED_HOSTS (.env). En producción es obligatorio (ver más abajo).
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # Application definition
@@ -182,9 +190,10 @@ PREVENTIVOS_ANTICIPACION_DIAS = int(os.getenv('PREVENTIVOS_ANTICIPACION_DIAS', '
 # --- Producción (DJANGO_DEBUG=0) ---------------------------------------------------------------
 # HTTPS es obligatorio: el Service Worker del modo sin conexión no funciona sin él.
 if not DEBUG:
-    from django.core.exceptions import ImproperlyConfigured
     if SECRET_KEY.startswith('django-insecure') or len(SECRET_KEY) < 40:
         raise ImproperlyConfigured('Define DJANGO_SECRET_KEY (mínimo 40 caracteres) en el archivo .env de producción.')
+    if not ALLOWED_HOSTS:
+        raise ImproperlyConfigured('Define DJANGO_ALLOWED_HOSTS (tu dominio) en el archivo .env de producción.')
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # Nginx termina el TLS y envía esta cabecera
     SESSION_COOKIE_SECURE = True
