@@ -20,6 +20,7 @@ from core.forms import AsignarOrdenForm, EjecucionForm, MotivoForm, OrdenTrabajo
 from core.models import DecisionIncidenciaOT, EquipoHVAC, OrdenTrabajo, RegistroActividad
 from core.ordenes import ReglaError
 from core.permisos import ROLES_GESTION, TECNICO, es_tecnico, rol_de, rol_requerido
+from core.utiles import entero_o_none
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +63,9 @@ def ordenes_view(request):
     if q:
         filtro = (Q(equipo__codigo_identificador__icontains=q) | Q(equipo__nombre__icontains=q)
                   | Q(descripcion__icontains=q) | Q(tecnico__first_name__icontains=q) | Q(tecnico__username__icontains=q))
-        if q.upper().startswith('OT-') and q[3:].isdigit():
-            filtro |= Q(pk=int(q[3:]))
-        elif q.isdigit():
-            filtro |= Q(pk=int(q))
+        numero = entero_o_none(q[3:]) if q.upper().startswith('OT-') else entero_o_none(q)
+        if numero is not None:
+            filtro |= Q(pk=numero)
         lista = lista.filter(filtro)
     lista = lista.annotate(
         n_incidencias=Count('puntos', filter=Q(puntos__resultado='INCIDENCIA')),
@@ -86,8 +86,9 @@ def ordenes_view(request):
 @rol_requerido(*ROLES_GESTION)
 def orden_crear_view(request):
     inicial = {}
-    if request.GET.get('equipo', '').isdigit() and EquipoHVAC.objects.filter(pk=request.GET['equipo']).exists():
-        inicial['equipo'] = int(request.GET['equipo'])
+    equipo_id = entero_o_none(request.GET.get('equipo', ''))
+    if equipo_id is not None and EquipoHVAC.objects.filter(pk=equipo_id).exists():
+        inicial['equipo'] = equipo_id
     form = OrdenTrabajoForm(request.POST or None, initial=inicial)
     if request.method == 'POST' and form.is_valid():
         orden = ordenes.crear(form.save(commit=False), request)
@@ -541,8 +542,10 @@ def orden_cancelar_view(request, orden_id):
 @require_POST
 def orden_descargar_view(request, orden_id):
     """El técnico prepara la orden para trabajarla sin conexión: queda marcada y recibe el paquete."""
-    orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
+    orden = OrdenTrabajo.objects.filter(pk=orden_id).first()
     try:
+        if orden is None:
+            raise sincronizacion.orden_no_disponible()  # misma respuesta que «no es tuya»: no revela si existe
         paquete = sincronizacion.descargar(orden, request)
     except ReglaError as e:
         return _json_rechazo(e)
@@ -555,8 +558,10 @@ def orden_descargar_view(request, orden_id):
 @require_POST
 def orden_sincronizar_view(request, orden_id):
     """Recibe el trabajo hecho sin conexión (paquete JSON + fotos). Todo o nada; reenviar el mismo paquete es seguro."""
-    orden = get_object_or_404(OrdenTrabajo, pk=orden_id)
+    orden = OrdenTrabajo.objects.filter(pk=orden_id).first()
     try:
+        if orden is None:
+            raise sincronizacion.orden_no_disponible()
         paquete = sincronizacion.leer_paquete(request.POST.get('paquete', ''))
         resultado = sincronizacion.sincronizar(orden, paquete, request.FILES.getlist('fotos'), request)
     except ReglaError as e:

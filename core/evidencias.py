@@ -16,7 +16,8 @@ FOTOS_MAXIMAS = 20
 TAMANO_MAXIMO = 10 * 1024 * 1024
 LADO_MAXIMO = 1600
 FIRMA_MAXIMA = 300 * 1024
-PIXELES_MAXIMOS_FOTO = 50_000_000
+PIXELES_MAXIMOS_FOTO = 50_000_000       # JPEG: se decodifica reducido (draft), así que gasta poca memoria
+PIXELES_MAXIMOS_OTROS = 16_000_000      # PNG/WebP no admiten decodificación reducida: ~64 MB de RAM como máximo
 PIXELES_MAXIMOS_FIRMA = 2_000_000
 FORMATOS = ('JPEG', 'PNG', 'WEBP')
 
@@ -51,8 +52,15 @@ def _abrir_imagen(archivo):
         Image.open(archivo).verify()
         archivo.seek(0)
         imagen = Image.open(archivo)
-        if imagen.width * imagen.height > PIXELES_MAXIMOS_FOTO:
+        pixeles = imagen.width * imagen.height
+        if pixeles > PIXELES_MAXIMOS_FOTO or (imagen.format != 'JPEG' and pixeles > PIXELES_MAXIMOS_OTROS):
             raise ReglaError(MSG_IMAGEN)
+        if imagen.format == 'JPEG':
+            # Decodifica el JPEG ya a escala reducida (1/2, 1/4 o 1/8) cuando la foto va a quedar en LADO_MAXIMO:
+            # una foto enorme no obliga a reservar cientos de MB (Gunicorn tiene pocos procesos).
+            escala = LADO_MAXIMO / max(imagen.width, imagen.height)
+            if escala < 1:
+                imagen.draft('RGB', (max(1, round(imagen.width * escala)), max(1, round(imagen.height * escala))))
         imagen.load()
     except (UnidentifiedImageError, OSError, ValueError, SyntaxError, Image.DecompressionBombError):
         raise ReglaError(MSG_IMAGEN)

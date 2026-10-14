@@ -21,6 +21,7 @@ from core.models import (DispositivoTOTP, EquipoHVAC, HistorialMantenimiento, Or
                          RegistroActividad)
 from core.permisos import ADMIN, ROLES_GESTION, es_tecnico, rol_de, rol_requerido
 from core.pdf_service import generar_pdf_mantenimiento
+from core.utiles import entero_o_none, nombre_archivo_seguro
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,7 @@ def descargar_reporte_pdf(request, mantenimiento_id):
                         detalle=f"Mantenimiento #{mantenimiento.id} · {mantenimiento.equipo.codigo_identificador}")
     
     response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
-    filename = f"reporte_servicio_{mantenimiento.equipo.codigo_identificador}_{mantenimiento.id}.pdf"
+    filename = f"reporte_servicio_{nombre_archivo_seguro(mantenimiento.equipo.codigo_identificador, 'equipo')}_{mantenimiento.id}.pdf"
     response['Content-Disposition'] = f'inline; filename="{filename}"'
     
     return response
@@ -331,8 +332,8 @@ def actividad_view(request):
     registros = RegistroActividad.objects.select_related('usuario')
     uid, accion = request.GET.get('usuario', ''), request.GET.get('accion', '')
     desde, hasta = parse_date(request.GET.get('desde', '')), parse_date(request.GET.get('hasta', ''))
-    if uid.isdigit():
-        registros = registros.filter(usuario_id=int(uid))
+    if entero_o_none(uid) is not None:
+        registros = registros.filter(usuario_id=entero_o_none(uid))
     if accion in dict(RegistroActividad.ACCION_CHOICES):
         registros = registros.filter(accion=accion)
     if desde:

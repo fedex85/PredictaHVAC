@@ -156,9 +156,9 @@ class DescargaTests(OrdenesBase):
         self.assertEqual(p['catalogo']['puntos'], [])
         self.assertEqual(len(p['catalogo']['mediciones_elegibles']), len(checklists.MEDICIONES))
 
-    def test_otro_tecnico_403(self):
+    def test_otro_tecnico_404_como_si_no_existiera(self):
         o = self.orden(OrdenTrabajo.ASIGNADA, tecnico=self.tec)
-        self.assertEqual(self.descargar(o, self.tec2).status_code, 403)
+        self.assertEqual(self.descargar(o, self.tec2).status_code, 404)
         o.refresh_from_db()
         self.assertIsNone(o.descargada_en)
 
@@ -372,9 +372,9 @@ class SincronizarRechazosTests(SincronizacionBase):
         ordenes.liberar_descarga(o, self.peticion(self.gerente))
         self.rechaza(o, self.paquete())
 
-    def test_otro_tecnico_403(self):
+    def test_otro_tecnico_404_como_si_no_existiera(self):
         o = self.preparar()
-        self.rechaza(o, self.paquete(), 403, usuario=self.tec2)
+        self.rechaza(o, self.paquete(), 404, usuario=self.tec2)
 
     def test_gestion_403(self):
         o = self.preparar()

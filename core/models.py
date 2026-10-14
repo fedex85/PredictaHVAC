@@ -2,6 +2,7 @@ import uuid
 from datetime import date, timedelta
 
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -32,7 +33,10 @@ class EquipoHVAC(models.Model):
     ]
 
     nombre = models.CharField(max_length=100)
-    codigo_identificador = models.CharField(max_length=50, unique=True)
+    codigo_identificador = models.CharField(
+        max_length=50, unique=True,
+        validators=[RegexValidator(r'^[\w][\w .\-/]*\Z', 'Usa solo letras, números, espacios y los signos . - _ / '
+                                   '(sin comillas ni otros símbolos).')])
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='SPLIT')
     ubicacion = models.CharField(max_length=150)
     modelo = models.CharField(max_length=100, blank=True)

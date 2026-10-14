@@ -12,6 +12,7 @@ from django.utils.dateparse import parse_datetime
 from core import checklists, evidencias, ordenes
 from core.models import OrdenTrabajo, PuntoChecklistOT, SincronizacionOT
 from core.ordenes import ReglaError, _bloquear, _evento, certificado_problema
+from core.permisos import es_tecnico
 
 
 class Rechazo(ReglaError):
@@ -26,6 +27,19 @@ TOLERANCIA_RELOJ = timedelta(minutes=5)
 MAX_PUNTOS = 100
 MAX_MEDICIONES = 50
 MSG_PAQUETE = 'El paquete de sincronización no es válido.'
+MSG_NO_DISPONIBLE = 'La orden no existe o no está asignada a ti.'
+
+
+def orden_no_disponible():
+    """Respuesta única (404) para una orden inexistente o de otro técnico: no permite averiguar qué números existen."""
+    return Rechazo(MSG_NO_DISPONIBLE, estado_http=404)
+
+
+def _no_es_el_tecnico(request, accion):
+    """Un técnico que no es el asignado recibe 404 (como si no existiera); gestión, que ve todas las órdenes, un 403 claro."""
+    if es_tecnico(request.user):
+        return orden_no_disponible()
+    return Rechazo(f'Solo el técnico asignado puede {accion} esta orden.', estado_http=403)
 
 
 def _punto(p):
@@ -98,7 +112,7 @@ def descargar(orden, request):
     """Marca la orden como descargada (bloquea su reasignación) y devuelve el paquete para el teléfono."""
     _bloquear(orden)
     if orden.tecnico_id != request.user.id:
-        raise Rechazo('Solo el técnico asignado puede descargar esta orden.', estado_http=403)
+        raise _no_es_el_tecnico(request, 'descargar')
     if orden.estado not in ESTADOS_DESCARGABLES:
         raise Rechazo(f'No se puede descargar: la orden está {orden.get_estado_display().lower()}.')
     problema = certificado_problema(request.user, orden.requiere_refrigerante)
@@ -271,7 +285,7 @@ def _mismo_valor(actual, texto):
 def _aplicar(orden, paquete, archivos, request, creados):
     _bloquear(orden)
     if orden.tecnico_id != request.user.id:
-        raise Rechazo('Solo el técnico asignado puede sincronizar esta orden.', estado_http=403)
+        raise _no_es_el_tecnico(request, 'sincronizar')
     previa = SincronizacionOT.objects.filter(paquete_id=paquete['paquete_id']).first()
     if previa:
         if previa.orden_id != orden.id:
