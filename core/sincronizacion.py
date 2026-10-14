@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -295,6 +296,16 @@ def _aplicar(orden, paquete, archivos, request, creados):
                           'Revisa la fecha y la hora del teléfono.')
         if inicio > timezone.now() + TOLERANCIA_RELOJ:
             raise Rechazo('La hora de inicio está en el futuro. Revisa la fecha y la hora del teléfono.')
+        # La hora de inicio la declara el teléfono: se acota para que no sirva para «retroceder» la fecha en que
+        # se evalúa el certificado de gases fluorados. Ni muy lejos de la descarga ni muy antigua al recibirla.
+        horas = settings.OFFLINE_VENTANA_HORAS
+        ventana = timedelta(hours=horas)
+        if inicio > orden.descargada_en + ventana:
+            raise Rechazo(f'Pasaron más de {horas} horas entre la descarga de la orden y su inicio. '
+                          'Vuelve a prepararla con señal y avisa a gestión si tienes trabajo sin enviar.')
+        if inicio < timezone.now() - ventana:
+            raise Rechazo(f'La hora de inicio tiene más de {horas} horas de antigüedad. '
+                          'Avisa a gestión: deberá revisar y registrar esta intervención.')
         ordenes.iniciar(orden, request, inicio=inicio)
 
     if 'elegidas' in paquete and set(paquete['elegidas']) != set(orden.mediciones.values_list('codigo', flat=True)):

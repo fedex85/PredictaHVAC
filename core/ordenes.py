@@ -144,6 +144,12 @@ def iniciar(orden, request, inicio=None):
     orden.con_evidencias = orden.con_checklist  # sin checklist no hay resumen que firmar
     orden.save()
     texto = 'Intervención iniciada'
+    if inicio:
+        # Trabajo sin conexión: queda constancia de lo que declaró el teléfono y de cuándo lo recibió el servidor
+        recibido = timezone.now()
+        segundos = max(0, int((recibido - inicio).total_seconds()))
+        texto += (f' sin conexión (inicio declarado {timezone.localtime(inicio):%d/%m %H:%M}, '
+                  f'recibido {timezone.localtime(recibido):%d/%m %H:%M}, diferencia {segundos // 3600} h {segundos % 3600 // 60} min)')
     if orden.con_checklist:
         puntos, mediciones = generar_checklist(orden)
         if puntos or mediciones:

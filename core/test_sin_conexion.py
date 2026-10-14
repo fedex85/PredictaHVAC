@@ -5,6 +5,7 @@ import uuid
 from datetime import timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -405,16 +406,67 @@ class SincronizarRechazosTests(SincronizacionBase):
         self.rechaza(o, p)
 
     def test_certificado_caducado_antes_del_inicio_400(self):
-        o = self.preparar(tecnico=self.tec_caducado, gas=True, descargada_hace=timedelta(days=20))
-        errores = self.rechaza(o, self.paquete(inicio=(timezone.now() - timedelta(days=2)).isoformat()),
+        # El certificado de `tec_caducado` caducó hace 5 días: el inicio (hace 30 h) ya cae fuera de vigencia.
+        o = self.preparar(tecnico=self.tec_caducado, gas=True, descargada_hace=timedelta(hours=40))
+        errores = self.rechaza(o, self.paquete(inicio=(timezone.now() - timedelta(hours=30)).isoformat()),
                                usuario=self.tec_caducado)
         self.assertIn('caducado', errores[0])
 
     def test_certificado_que_caduca_despues_del_inicio_es_valido(self):
-        o = self.preparar(tecnico=self.tec_caducado, gas=True, descargada_hace=timedelta(days=20))
-        r = self.enviar(o, self.paquete(inicio=(timezone.now() - timedelta(days=10)).isoformat()),
-                        usuario=self.tec_caducado)
+        # Regla de producto: si el certificado estaba vigente el día del inicio, el trabajo se acepta aunque
+        # el certificado caduque antes de que llegue la sincronización (siempre dentro del tope de antigüedad).
+        o = self.preparar(tecnico=self.tec_caducado, gas=True, descargada_hace=timedelta(hours=40))
+        inicio = timezone.now() - timedelta(hours=30)
+        self.tec_caducado.perfil.cert_caducidad = timezone.localtime(inicio).date()  # vigente ese día, caducado hoy
+        self.tec_caducado.perfil.save()
+        r = self.enviar(o, self.paquete(inicio=inicio.isoformat()), usuario=self.tec_caducado)
         self.assertEqual(r.status_code, 200, r.content)
+
+    # --- M-02: la hora de inicio declarada por el teléfono tiene tope -------------------------------
+    def test_inicio_mas_de_48h_despues_de_la_descarga_400(self):
+        o = self.preparar(descargada_hace=timedelta(hours=60))
+        errores = self.rechaza(o, self.paquete(inicio=(timezone.now() - timedelta(hours=1)).isoformat()))
+        self.assertIn('48 horas', errores[0])
+        o.refresh_from_db()
+        self.assertEqual(o.estado, OrdenTrabajo.ASIGNADA)
+
+    def test_inicio_con_mas_de_48h_de_antiguedad_400(self):
+        o = self.preparar(descargada_hace=timedelta(hours=50))
+        errores = self.rechaza(o, self.paquete(inicio=(timezone.now() - timedelta(hours=49)).isoformat()))
+        self.assertIn('antigüedad', errores[0])
+        o.refresh_from_db()
+        self.assertEqual(o.estado, OrdenTrabajo.ASIGNADA)
+
+    def test_el_fraude_del_certificado_retrocediendo_el_inicio_queda_cerrado(self):
+        # Descarga con el certificado vigente, trabaja días después y declara el inicio justo tras la descarga
+        o = self.preparar(tecnico=self.tec_caducado, gas=True, descargada_hace=timedelta(days=7))
+        self.tec_caducado.perfil.cert_caducidad = timezone.localtime(timezone.now() - timedelta(days=6)).date()
+        self.tec_caducado.perfil.save()
+        inicio = timezone.now() - timedelta(days=7) + timedelta(minutes=5)  # vigente ese día
+        self.rechaza(o, self.paquete(inicio=inicio.isoformat()), usuario=self.tec_caducado)
+        o.refresh_from_db()
+        self.assertEqual(o.estado, OrdenTrabajo.ASIGNADA)
+
+    def test_inicio_justo_dentro_de_los_topes_se_acepta(self):
+        o = self.preparar(descargada_hace=timedelta(hours=47))
+        r = self.enviar(o, self.paquete(inicio=(timezone.now() - timedelta(hours=46, minutes=30)).isoformat()), usuario=self.tec)
+        self.assertEqual(r.status_code, 200, r.content)
+
+    @override_settings(OFFLINE_VENTANA_HORAS=72)
+    def test_la_ventana_se_puede_configurar(self):
+        o = self.preparar(descargada_hace=timedelta(hours=70))
+        r = self.enviar(o, self.paquete(inicio=(timezone.now() - timedelta(hours=60)).isoformat()), usuario=self.tec)
+        self.assertEqual(r.status_code, 200, r.content)
+
+    def test_el_evento_de_inicio_registra_la_diferencia_entre_declarado_y_recibido(self):
+        o = self.preparar(descargada_hace=timedelta(hours=5))
+        r = self.enviar(o, self.paquete(inicio=(timezone.now() - timedelta(hours=3, minutes=20)).isoformat()), usuario=self.tec)
+        self.assertEqual(r.status_code, 200, r.content)
+        texto = EventoOT.objects.filter(orden=o, texto__startswith='Intervención iniciada').first().texto
+        self.assertIn('sin conexión', texto)
+        self.assertIn('inicio declarado', texto)
+        self.assertIn('diferencia 3 h 20 min', texto)
+        self.assertLessEqual(len(texto), 255)
 
     def test_punto_desconocido_400_y_revierte_todo(self):
         o = self.preparar()

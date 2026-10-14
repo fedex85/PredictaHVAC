@@ -196,6 +196,10 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 # Los enlaces de contraseña que genera el administrador caducan pronto y solo valen una vez
 PASSWORD_RESET_TIMEOUT = int(os.getenv('ENLACE_CLAVE_HORAS', '4')) * 3600
 
+# Modo sin conexión: horas máximas entre descargar una orden y empezarla, y antigüedad máxima de la hora de inicio
+# declarada por el teléfono al llegar al servidor (M-02)
+OFFLINE_VENTANA_HORAS = int(os.getenv('OFFLINE_VENTANA_HORAS', '48'))
+
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
