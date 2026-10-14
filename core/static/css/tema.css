@@ -1,0 +1,66 @@
+/*
+ * Tema PredictaHVAC (paleta del logo). Se carga DESPUÉS de predicta.css y no necesita recompilar Tailwind:
+ * redefine las clases slate/cian/estados que usan las plantillas mediante variables de color.
+ *   - Contenido: fondo cian muy suave, tarjetas blancas, texto azul marino.
+ *   - Menú lateral, cabecera y barra inferior (.menu-marino): azul marino #0B1E47 con texto claro.
+ */
+:root {
+  --fondo: #e9f7fb; --sup: #ffffff; --sup-a: rgba(255, 255, 255, .9); --sup2: #f1fafd; --sup3: #dcf0f7; --hov: #dff1f7;
+  --bor: #c3e3ee; --bor2: #a8d3e2;
+  --t-tx: #0b1e47; --t-300: #223e6e; --t-400: #4f6f94; --t-500: #667f9f;
+  --c-cian: #007a9c; --c-ver: #0b7a44; --c-nar: #a85c00; --c-rojo: #c42b40; --c-vio: #6d3fd0;
+  --azul: #0a6bff; --azul-h: #2b8cff;
+}
+.menu-marino {
+  --fondo: #0b1e47; --sup: #0b1e47; --sup-a: rgba(11, 30, 71, .94); --sup2: #17367c; --sup3: #1d4290; --hov: #17367c;
+  --bor: #1c3a7a; --bor2: #2a4a8e;
+  --t-tx: #ffffff; --t-300: #c9d8f2; --t-400: #9fb6e0; --t-500: #8aa2cf;
+  --c-cian: #22e5ff; --c-ver: #6ee7b7; --c-nar: #fbbf24; --c-rojo: #fca5a5; --c-vio: #c4b5fd;
+}
+
+/* Superficies */
+.bg-slate-950 { background-color: var(--fondo); }
+.bg-slate-950\/60, .bg-slate-950\/50 { background-color: var(--sup2); }
+.bg-slate-900\/40, .bg-slate-800\/50 { background-color: var(--sup2); }   /* cuadro del chat del asistente, cabeceras de tabla */
+.bg-slate-950\/90 { --t-tx: #fff; --c-rojo: #fca5a5; background-color: rgba(11, 30, 71, .92); }   /* botón de borrar sobre las fotos: oscuro */
+.bg-slate-900 { background-color: var(--sup); }
+.bg-slate-900\/80 { background-color: var(--sup-a); }
+.bg-slate-800 { background-color: var(--sup2); }
+.bg-slate-700 { background-color: var(--sup3); }
+.hover\:bg-slate-800:hover, .hover\:bg-slate-700:hover, .hover\:bg-slate-800\/50:hover { background-color: var(--hov); }
+.from-slate-900 { --tw-gradient-from: #fff var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-slate-900\/80 { --tw-gradient-to: rgb(255 255 255 / .8) var(--tw-gradient-to-position); }
+
+/* Bordes */
+.border-slate-800, .border-slate-800\/80 { border-color: var(--bor); }
+.border-slate-700 { border-color: var(--bor2); }
+.divide-slate-800 > :not([hidden]) ~ :not([hidden]), .divide-slate-800\/70 > :not([hidden]) ~ :not([hidden]) { border-color: var(--bor); }
+.focus\:border-cyan-500:focus { border-color: var(--azul); }
+
+/* Texto */
+body, .text-white, .text-slate-100, .text-slate-200, .hover\:text-white:hover, .hover\:text-slate-200:hover { color: var(--t-tx); }
+.text-slate-300 { color: var(--t-300); }
+.text-slate-400 { color: var(--t-400); }
+.text-slate-500, .text-slate-600 { color: var(--t-500); }
+.placeholder-slate-500::placeholder, .placeholder-slate-600::placeholder { color: var(--t-500); }
+.text-cyan-400, .text-cyan-300, .hover\:text-cyan-300:hover, .hover\:text-cyan-400:hover { color: var(--c-cian); }
+.text-emerald-400, .text-emerald-300 { color: var(--c-ver); }
+.text-amber-400, .text-amber-300, .text-amber-200 { color: var(--c-nar); }
+.text-red-400, .text-red-300, .hover\:text-red-400:hover { color: var(--c-rojo); }
+.text-violet-300 { color: var(--c-vio); }
+
+/* Botones de acción: azul del logo, texto blanco */
+.bg-cyan-600 { background-color: var(--azul); }
+.hover\:bg-cyan-500:hover { background-color: var(--azul-h); }
+.bg-cyan-600, .bg-emerald-600, .bg-amber-600, .bg-emerald-500, .bg-amber-500, .hover\:bg-cyan-500:hover,
+.hover\:bg-emerald-500:hover, .hover\:bg-amber-500:hover { color: #fff; }
+.bg-amber-500.text-slate-900 { color: #0b1e47; }   /* contador de pendientes: ámbar con texto oscuro */
+
+/* Menú lateral, cabecera y barra inferior: ítem activo en azul marino más claro con filo cian */
+.menu-marino a.bg-cyan-600 { background-color: var(--sup2); box-shadow: inset 3px 0 0 #22e5ff; color: #fff; }
+.menu-marino a.text-cyan-400.font-bold { background-color: var(--sup2); border-radius: 12px; box-shadow: inset 0 -3px 0 #22e5ff; }
+.menu-marino .bg-slate-700 { background-color: var(--sup3); }
+.menu-marino .text-slate-900 { color: #0b1e47; }
+
+/* Asistente IA: cuadro del chat claro (el id gana a cualquier clase) */
+#chat-box { background-color: var(--sup2); border-color: var(--bor); }

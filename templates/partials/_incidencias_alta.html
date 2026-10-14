@@ -1,0 +1,44 @@
+{% comment %}Incidencias de gravedad Alta de una orden en revisión: decisión de gestión (correctiva o justificación). Solo lectura salvo gestión.{% endcomment %}
+{% if incidencias_alta %}
+<div id="incidencias-alta" class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+    <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <h2 class="text-base font-semibold text-white">Incidencias Alta</h2>
+        {% if n_pendientes_alta %}<span class="px-2 py-1 text-xs rounded-md bg-red-500/10 text-red-300 border border-red-500/30">{{ n_pendientes_alta }} sin resolver</span>
+        {% else %}<span class="px-2 py-1 text-xs rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">Todas resueltas</span>{% endif %}
+    </div>
+    {% for p in incidencias_alta %}
+    <div data-incidencia="{{ p.id }}" class="border border-slate-800 rounded-lg p-3 space-y-2">
+        <p class="text-sm text-slate-200">{{ p.texto }}</p>
+        {% if p.nota %}<p class="text-xs text-slate-400">{{ p.nota }}</p>{% endif %}
+        {% if p.decision_actual %}
+            {% if p.decision_actual.tipo == 'CORRECTIVA' %}
+            <p class="text-xs text-cyan-300">Correctiva creada: {% if p.correctiva_visible %}<a href="{% url 'orden_detalle' p.decision_actual.orden_correctiva.id %}" class="underline">{{ p.decision_actual.orden_correctiva.codigo }}</a>{% else %}{{ p.decision_actual.orden_correctiva.codigo }}{% endif %} ({{ p.decision_actual.orden_correctiva.get_estado_display }})</p>
+            {% else %}
+            <p class="text-xs text-emerald-300">Justificada: <span class="text-slate-300 whitespace-pre-line">{{ p.decision_actual.justificacion }}</span></p>
+            {% endif %}
+            {% if puede_decidir %}
+                {% if p.deshacible %}
+                <form method="post" action="{% url 'orden_incidencia_deshacer' orden.id p.id %}">{% csrf_token %}
+                    <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg transition">Deshacer decisión</button>
+                </form>
+                {% else %}
+                <p class="text-xs text-amber-300">Bloqueada por una correctiva activa.</p>
+                {% endif %}
+            {% endif %}
+        {% else %}
+            <p class="text-xs text-red-300">Sin resolver</p>
+            {% if puede_decidir %}
+            <div class="flex flex-wrap items-start gap-3">
+                <a href="{% url 'orden_incidencia_correctiva' orden.id p.id %}" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition">Crear correctiva</a>
+                <form method="post" action="{% url 'orden_incidencia_justificar' orden.id p.id %}" class="flex-1 min-w-[16rem] space-y-2">{% csrf_token %}
+                    <label for="just-{{ p.id }}" class="block text-xs font-medium text-slate-300">Justificación (mínimo 10 caracteres)</label>
+                    <textarea id="just-{{ p.id }}" name="justificacion" rows="2" maxlength="1000" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"></textarea>
+                    <button type="submit" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg transition">Justificar</button>
+                </form>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

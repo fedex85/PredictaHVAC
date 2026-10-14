@@ -1,0 +1,123 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrar Mantenimiento HVAC</title>
+    <link rel="stylesheet" href="{% static 'css/predicta.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tema.css' %}?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+    <meta name="theme-color" content="#0b1e47">
+    <style>
+        /* Estilos base garantizados para las entradas renderizadas por Django */
+        input[type="text"], input[type="date"], select, textarea {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border-width: 1px;
+            border-color: #D1D5DB;
+            border-radius: 0.375rem;
+            background-color: #FFFFFF;
+            color: #1F2937;
+            outline: none;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen py-8 font-sans">
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+            <div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Registrar Mantenimiento HVAC</h2>
+                    <p class="text-sm text-gray-500">Ingresa los detalles del servicio técnico realizado</p>
+                </div>
+                <a href="{% url 'historial' %}" class="text-sm text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md transition-colors">
+                    ← Volver al historial
+                </a>
+            </div>
+
+            <form method="post" action="{% url 'registrar_mantenimiento' %}" class="space-y-5">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="p-4 bg-red-50 text-red-700 rounded-md text-sm">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <!-- Equipo -->
+                    <div>
+                        <label for="{{ form.equipo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                            Equipo HVAC <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.equipo }}
+                        {% if form.equipo.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ form.equipo.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Tipo de Mantenimiento -->
+                    <div>
+                        <label for="{{ form.tipo_mantenimiento.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                            Tipo de Servicio <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.tipo_mantenimiento }}
+                        {% if form.tipo_mantenimiento.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ form.tipo_mantenimiento.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Fecha de Mantenimiento -->
+                    <div>
+                        <label for="{{ form.fecha_mantenimiento.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                            Fecha Realizada <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.fecha_mantenimiento }}
+                        {% if form.fecha_mantenimiento.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ form.fecha_mantenimiento.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Técnico Responsable -->
+                    <div>
+                        <label for="{{ form.tecnico_responsable.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                            Técnico Responsable <span class="text-red-500">*</span>
+                        </label>
+                        {{ form.tecnico_responsable }}
+                        {% if form.tecnico_responsable.errors %}
+                            <p class="mt-1 text-xs text-red-600">{{ form.tecnico_responsable.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Descripción -->
+                <div>
+                    <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                        Descripción del Trabajo <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.descripcion }}
+                    {% if form.descripcion.errors %}
+                        <p class="mt-1 text-xs text-red-600">{{ form.descripcion.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Acciones -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+                    <a href="{% url 'historial' %}" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium shadow-sm transition-colors">
+                        Guardar y Generar PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

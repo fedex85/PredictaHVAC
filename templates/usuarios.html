@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}PredictaHVAC - Usuarios{% endblock %}
+
+{% block header %}
+<header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div>
+        <h1 class="text-xl font-bold text-white">Usuarios</h1>
+        <p class="text-xs text-slate-400">Cuentas de acceso, roles y certificación de gases fluorados</p>
+    </div>
+    <div class="flex items-center space-x-2">
+    <a href="{% url 'actividad' %}" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-lg transition">Ver actividad</a>
+    <a href="{% url 'crear_usuario' %}" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-cyan-600/20 flex items-center space-x-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        <span>Crear usuario</span>
+    </a>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs bg-slate-950 text-slate-400 border-b border-slate-800">
+                <tr>
+                    <th class="py-3 px-4">Usuario</th>
+                    <th class="py-3 px-4">Rol</th>
+                    <th class="py-3 px-4">Certificado gases</th>
+                    <th class="py-3 px-4">Estado</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                {% for u in usuarios %}
+                <tr class="hover:bg-slate-800/50 transition">
+                    <td class="py-3 px-4">
+                        <p class="font-medium text-white">{{ u.get_full_name|default:u.username }}</p>
+                        <p class="text-xs text-slate-500">{{ u.email|default:u.username }}</p>
+                    </td>
+                    <td class="py-3 px-4">
+                        {% if u.is_superuser or u.perfil.rol == 'ADMIN' %}
+                            <span class="px-2 py-1 text-xs rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/20">Administrador</span>
+                        {% elif u.perfil.rol == 'GERENTE' %}
+                            <span class="px-2 py-1 text-xs rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Gerente</span>
+                        {% else %}
+                            <span class="px-2 py-1 text-xs rounded-md bg-slate-500/10 text-slate-300 border border-slate-500/30">Técnico</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4">
+                        {% with est=u.perfil.cert_estado %}
+                            {% if est == 'vigente' %}
+                                <span class="px-2 py-1 text-xs rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Vigente · {{ u.perfil.cert_caducidad|date:"d/m/Y" }}</span>
+                            {% elif est == 'caducado' %}
+                                <span class="px-2 py-1 text-xs rounded-md bg-red-500/10 text-red-400 border border-red-500/20">Caducado · {{ u.perfil.cert_caducidad|date:"d/m/Y" }}</span>
+                            {% else %}
+                                <span class="text-xs text-slate-500">Sin certificado</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td class="py-3 px-4">
+                        {% if not u.is_active %}
+                            <span class="text-xs text-slate-500">Desactivado</span>
+                        {% elif u.last_login is None %}
+                            <span class="text-xs text-amber-400">Aún no ha entrado</span>
+                        {% else %}
+                            <span class="text-xs text-slate-400">Último acceso {{ u.last_login|date:"d/m/Y H:i" }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="flex items-center justify-end space-x-3">
+                            <a href="{% url 'editar_usuario' u.id %}" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition">Editar</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="py-6 px-4 text-center text-slate-500">Todavía no hay usuarios. Crea el primero.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-400 space-y-2">
+    <h2 class="text-base font-semibold text-white">Qué puede hacer cada rol</h2>
+    <p><span class="text-violet-300 font-medium">Administrador:</span> todo lo anterior y gestionar usuarios.</p>
+    <p><span class="text-cyan-400 font-medium">Gerente:</span> consultar, crear y editar equipos, registrar mantenimientos y usar el asistente.</p>
+    <p><span class="text-slate-200 font-medium">Técnico:</span> consultar equipos e historial, usar el calendario y el asistente, y registrar mantenimientos. No crea ni edita equipos.</p>
+</div>
+{% endblock %}

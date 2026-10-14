@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}PredictaHVAC - Agenda{% endblock %}
+
+{% block header %}
+<header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div>
+        <h1 class="text-xl font-bold text-white">Agenda</h1>
+        <p class="text-xs text-slate-400">Tus intervenciones abiertas por fecha</p>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% for titulo, ordenes in grupos %}
+<section class="space-y-3">
+    <h2 class="text-sm font-semibold {% if titulo == 'Atrasadas' %}text-red-300{% else %}text-slate-300{% endif %}">{{ titulo }} <span class="text-slate-500 font-normal">({{ ordenes|length }})</span></h2>
+    {% for orden in ordenes %}{% include 'partials/_tarjeta_orden.html' with orden=orden %}{% endfor %}
+</section>
+{% empty %}
+<p class="text-center text-slate-500 py-10">No tienes órdenes abiertas.</p>
+{% endfor %}
+{% endblock %}

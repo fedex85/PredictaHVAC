@@ -1,0 +1,32 @@
+{# Cabecera única (móvil) #}
+{% load static %}
+{% if es_tecnico %}
+<header class="menu-marino md:hidden bg-slate-900 text-white px-4 py-3 flex justify-between items-center shadow-md z-40 flex-shrink-0">
+  <a href="{% url 'ordenes' %}" class="flex items-center space-x-3 min-w-0"><img src="{% static 'img/icono-app.png' %}" alt="" class="w-8 h-8 rounded-lg shadow-md"><span class="min-w-0"><span class="block font-bold text-base leading-tight">PredictaHVAC</span><span class="block text-[11px] text-slate-400 leading-tight truncate">{{ request.user.get_full_name|default:request.user.username }}</span></span></a>
+  <div class="flex items-center gap-3">
+    <a id="contador-pendientes" href="{% url 'sin_conexion' %}" hidden class="rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-slate-900"></a>
+    <span id="indicador-conexion" class="flex items-center gap-1.5 text-xs" role="status" aria-live="polite">
+      <span data-en-linea class="flex items-center gap-1.5 text-emerald-300"><span class="h-2 w-2 rounded-full bg-emerald-400"></span>En línea</span>
+      <a href="{% url 'sin_conexion' %}" data-sin-conexion class="hidden flex items-center gap-1.5 text-amber-300 underline"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Sin conexión</a>
+    </span>
+    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="text-slate-300 hover:text-red-400 transition p-1" title="Cerrar sesión" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg></button></form>
+  </div>
+</header>
+<script>
+(function () {
+  var caja = document.getElementById('indicador-conexion');
+  if (!caja) { return; }
+  var on = caja.querySelector('[data-en-linea]'), off = caja.querySelector('[data-sin-conexion]');
+  function ajustar() { var en = navigator.onLine; on.classList.toggle('hidden', !en); off.classList.toggle('hidden', en); }
+  window.addEventListener('online', ajustar);
+  window.addEventListener('offline', ajustar);
+  ajustar();
+})();
+</script>
+<script type="module" src="{% static 'sinconexion/arranque.js' %}" data-usuario="{{ request.user.id }}"></script>
+{% else %}
+<header class="menu-marino md:hidden bg-slate-900 text-white px-4 py-3 flex justify-between items-center shadow-md z-40 flex-shrink-0">
+  <a href="{% url 'dashboard' %}" class="flex items-center space-x-3"><img src="{% static 'img/icono-app.png' %}" alt="" class="w-8 h-8 rounded-lg shadow-md"><span class="font-bold text-lg">PredictaHVAC</span></a>
+  <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="text-slate-300 hover:text-red-400 transition p-1" title="Cerrar sesión" aria-label="Cerrar sesión"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg></button></form>
+</header>
+{% endif %}

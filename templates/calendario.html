@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block title %}PredictaHVAC - Calendario{% endblock %}
+
+{% block header %}
+<header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40">
+    <div>
+        <h1 class="text-xl font-bold text-white">Calendario</h1>
+        <p class="text-xs text-slate-400">Órdenes por fecha programada</p>
+    </div>
+    <form method="get" class="flex items-center gap-2">
+        <input type="hidden" name="mes" value="{{ mes_mostrado }}">
+        <label for="filtro-tecnico" class="text-xs text-slate-400">Técnico</label>
+        <select id="filtro-tecnico" name="tecnico" onchange="this.form.submit()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white">
+            <option value="">Todos</option>
+            {% for t in tecnicos %}<option value="{{ t.id }}"{% if t.id == tecnico_id %} selected{% endif %}>{{ t.get_full_name|default:t.username }}</option>{% endfor %}
+        </select>
+        <noscript><button type="submit" class="px-3 py-1.5 bg-slate-800 text-slate-200 text-xs rounded-lg">Filtrar</button></noscript>
+    </form>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+        {% if mes_anterior %}<a href="?mes={{ mes_anterior }}{% if tecnico_id %}&tecnico={{ tecnico_id }}{% endif %}" aria-label="Mes anterior" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">‹</a>{% endif %}
+        <h2 id="titulo-mes" class="text-base font-semibold text-white min-w-[9rem] text-center">{{ titulo_mes }}</h2>
+        {% if mes_siguiente %}<a href="?mes={{ mes_siguiente }}{% if tecnico_id %}&tecnico={{ tecnico_id }}{% endif %}" aria-label="Mes siguiente" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">›</a>{% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-400">{{ total_mes }} orden{{ total_mes|pluralize:"es" }}</span>
+        {% if mes_mostrado != mes_actual %}<a href="?mes={{ mes_actual }}{% if tecnico_id %}&tecnico={{ tecnico_id }}{% endif %}" class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition">Hoy</a>{% endif %}
+    </div>
+</div>
+
+{# Escritorio: cuadrícula mensual #}
+<div id="cuadricula" class="hidden md:block bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="grid grid-cols-7 border-b border-slate-800 text-center text-xs font-semibold text-slate-400">
+        {% for d in dias_semana %}<div class="py-2">{{ d }}</div>{% endfor %}
+    </div>
+    {% for semana in semanas %}
+    <div class="grid grid-cols-7 {% if not forloop.last %}border-b border-slate-800{% endif %}">
+        {% for dia in semana %}
+        <div class="min-h-[6.5rem] p-1.5 space-y-1 {% if not forloop.last %}border-r border-slate-800{% endif %} {% if not dia.del_mes %}bg-slate-950/60{% endif %}">
+            <p class="text-xs {% if dia.es_hoy %}inline-flex w-6 h-6 items-center justify-center rounded-full bg-cyan-600 text-white font-semibold{% elif dia.del_mes %}text-slate-300{% else %}text-slate-600{% endif %}">{{ dia.fecha.day }}</p>
+            {% if dia.del_mes %}
+                {% for orden in dia.ordenes|slice:":3" %}{% include 'partials/_chip_calendario.html' %}{% endfor %}
+                {% if dia.ordenes|length > 3 %}
+                <details class="text-xs text-slate-400">
+                    <summary class="cursor-pointer hover:text-slate-200">+{{ dia.ordenes|length|add:"-3" }} más</summary>
+                    <div class="space-y-1 mt-1">{% for orden in dia.ordenes|slice:"3:" %}{% include 'partials/_chip_calendario.html' %}{% endfor %}</div>
+                </details>
+                {% endif %}
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+{# Móvil: lista de los días con órdenes #}
+<div id="lista-dias" class="md:hidden space-y-3">
+    {% for dia in dias_lista %}
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+        <h3 class="text-sm font-semibold {% if dia.es_hoy %}text-cyan-400{% else %}text-slate-200{% endif %}">{{ dia.fecha|date:"l j" }}{% if dia.es_hoy %} · hoy{% endif %}</h3>
+        {% for orden in dia.ordenes %}{% include 'partials/_chip_calendario.html' %}{% endfor %}
+    </section>
+    {% empty %}
+    <p class="text-sm text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-6 text-center">No hay órdenes programadas en {{ titulo_mes }}.</p>
+    {% endfor %}
+</div>
+
+<section id="sin-fecha" class="space-y-2">
+    <h2 class="text-sm font-semibold text-slate-300">Sin fecha programada <span class="opacity-60">{{ sin_fecha|length }}</span></h2>
+    {% for orden in sin_fecha %}
+    <div class="flex items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2">
+        <div class="min-w-0">{% include 'partials/_chip_calendario.html' %}</div>
+        <div class="shrink-0">{% include 'partials/_estado_ot.html' %}</div>
+    </div>
+    {% empty %}
+    <p class="text-xs text-slate-500">Todas las órdenes pendientes tienen fecha.</p>
+    {% endfor %}
+</section>
+{% endblock %}

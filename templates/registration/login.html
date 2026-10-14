@@ -1,0 +1,82 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - PredictaHVAC</title>
+    <link rel="stylesheet" href="{% static 'css/predicta.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tema.css' %}?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+    <meta name="theme-color" content="#0b1e47">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+
+    <!-- Contenedor Principal (Tarjetón responsivo) -->
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-6">
+        
+        <!-- Encabezado / Logo -->
+        <div class="text-center">
+            <img src="{% static 'img/logo-login.png' %}" alt="PredictaHVAC" class="mx-auto" style="width:224px;height:224px">
+            <h1 class="sr-only">PredictaHVAC</h1>
+        </div>
+
+        <!-- Formulario -->
+        <form method="POST" action="" class="space-y-4">
+            {% csrf_token %}
+            {% if form.errors %}
+            <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3">Usuario o contraseña incorrectos. Inténtalo de nuevo.</div>
+            {% endif %}
+            
+            <!-- Campo Usuario -->
+            <div>
+                <label for="username" class="block text-xs font-medium text-slate-300 mb-1">Usuario / Correo</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required 
+                    placeholder="usuario@ejemplo.com"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition"
+                >
+            </div>
+
+            <!-- Campo Contraseña -->
+            <div>
+                <label for="password" class="block text-xs font-medium text-slate-300 mb-1">Contraseña</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required 
+                    placeholder="••••••••"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition"
+                >
+            </div>
+
+            <!-- Recordar y Recuperar -->
+            <div class="flex items-center justify-between text-sm">
+                <label class="flex items-center text-slate-400 cursor-pointer">
+                    <input type="checkbox" class="rounded border-slate-700 bg-slate-950 text-cyan-600 focus:ring-cyan-500 h-4 w-4">
+                    <span class="ml-2">Recordarme</span>
+                </label>
+                <a href="#" class="text-cyan-400 hover:text-cyan-300 font-medium">¿Olvidaste tu contraseña?</a>
+            </div>
+
+            <!-- Botón de Ingreso -->
+            <button 
+                type="submit" 
+                class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2.5 rounded-lg shadow-md shadow-cyan-600/20 transition duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+            >
+                Iniciar Sesión
+            </button>
+        </form>
+
+        <!-- Pie del card -->
+        <div class="text-center text-xs text-slate-500">
+            &copy; Gestor de Mantenimiento - Todos los derechos reservados.
+        </div>
+    </div>
+
+</body>
+</html>

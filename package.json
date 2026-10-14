@@ -1,0 +1,11 @@
+{
+  "name": "predicta-hvac",
+  "private": true,
+  "scripts": {
+    "css": "tailwindcss -c tailwind.config.js -i css/entrada.css -o core/static/css/predicta.css --minify",
+    "css:watch": "tailwindcss -c tailwind.config.js -i css/entrada.css -o core/static/css/predicta.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

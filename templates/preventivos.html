@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}PredictaHVAC - Preventivos{% endblock %}
+
+{% block header %}
+<header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'ordenes' %}" aria-label="Volver a órdenes" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">←</a>
+        <div>
+            <h1 class="text-xl font-bold text-white">Preventivos</h1>
+            <p class="text-xs text-slate-400">Plan de mantenimiento preventivo de los equipos</p>
+        </div>
+    </div>
+    <form method="post" action="{% url 'preventivos_generar' %}" class="flex items-center gap-3">{% csrf_token %}
+        {% if not n_tocan %}<span id="motivo-desactivado" class="text-xs text-slate-400">{% if filas %}Nada por generar ahora: los equipos con plan están al día o ya tienen su orden.{% else %}Primero define «Preventivo cada…» en algún equipo.{% endif %}</span>{% endif %}
+        <button type="submit" {% if not n_tocan %}disabled aria-disabled="true"{% endif %} class="px-4 py-2 text-xs font-semibold rounded-lg transition {% if n_tocan %}bg-cyan-600 hover:bg-cyan-500 text-white shadow-md shadow-cyan-600/20{% else %}bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed{% endif %}">
+            Generar órdenes pendientes{% if n_tocan %} ({{ n_tocan }}){% endif %}
+        </button>
+    </form>
+</header>
+{% endblock %}
+
+{% block content %}
+<p class="text-sm text-slate-400">Se crea una orden <span class="text-slate-200">Pendiente</span> cuando faltan {{ dias }} días o menos para el próximo preventivo (o ya venció). La fecha se cuenta desde el último preventivo registrado. El plan de cada equipo se define al crearlo o editarlo.</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
+    <table class="w-full text-sm text-left">
+        <thead class="text-xs text-slate-400 border-b border-slate-800">
+            <tr><th class="py-3 px-4">Equipo</th><th class="py-3 px-4">Plan</th><th class="py-3 px-4">Último</th><th class="py-3 px-4">Próximo</th><th class="py-3 px-4">Estado</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+            {% for f in filas %}
+            <tr data-equipo="{{ f.equipo.id }}">
+                <td class="py-3 px-4"><a href="{% url 'detalle_equipo' f.equipo.id %}" class="text-white hover:text-cyan-400 font-medium">{{ f.equipo.codigo_identificador }}</a> <span class="text-slate-400">{{ f.equipo.nombre }}</span></td>
+                <td class="py-3 px-4 text-slate-300 whitespace-nowrap">{{ f.equipo.get_periodicidad_meses_display }}</td>
+                <td class="py-3 px-4 text-slate-300 whitespace-nowrap">{{ f.ultimo|date:"d/m/Y"|default:"—" }}</td>
+                <td class="py-3 px-4 text-slate-300 whitespace-nowrap">{{ f.proximo|date:"d/m/Y" }}</td>
+                <td class="py-3 px-4 whitespace-nowrap">
+                    {% if f.estado == 'VENCIDO' %}<span class="px-2.5 py-1 text-xs rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-medium">Vencido</span>
+                    {% elif f.estado == 'PROXIMO' %}<span class="px-2.5 py-1 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Próximo</span>
+                    {% elif f.estado == 'ABIERTA' %}<a href="{% url 'orden_detalle' f.abierta.id %}" class="px-2.5 py-1 text-xs rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium">{{ f.abierta.codigo }} · {{ f.abierta.get_estado_display }}</a>
+                    {% elif f.estado == 'AL_DIA' %}<span class="px-2.5 py-1 text-xs rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Al día</span>
+                    {% else %}<span class="px-2.5 py-1 text-xs rounded-full bg-slate-500/10 text-slate-300 border border-slate-500/30 font-medium">{{ f.etiqueta }}</span>{% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="py-8 px-4 text-center text-slate-500">Ningún equipo tiene plan preventivo. Define «Preventivo cada…» al crear o editar un equipo.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if n_sin_plan %}<p class="text-xs text-slate-500">{{ n_sin_plan }} equipo(s) sin plan preventivo.</p>{% endif %}
+{% endblock %}

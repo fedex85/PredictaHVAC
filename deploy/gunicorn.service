@@ -1,0 +1,16 @@
+# /etc/systemd/system/predicta.service
+[Unit]
+Description=PredictaHVAC (Gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=predicta
+Group=www-data
+WorkingDirectory=/srv/predicta/app
+EnvironmentFile=/srv/predicta/app/.env
+ExecStart=/srv/predicta/venv/bin/gunicorn config.wsgi:application --workers 3 --bind unix:/run/predicta/gunicorn.sock --timeout 60
+RuntimeDirectory=predicta
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

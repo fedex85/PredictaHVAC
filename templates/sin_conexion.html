@@ -1,0 +1,33 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1e47">
+  <title>PredictaHVAC - Sin conexión</title>
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <link rel="icon" href="{% static 'img/favicon-32.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'sinconexion/sinconexion.css' %}">
+</head>
+<body data-usuario="{{ request.user.id }}">
+  <header class="sc-cabecera">
+    <h1>Mis órdenes sin conexión</h1>
+    <span class="sc-conexion" id="estado-conexion" role="status">Sin conexión</span>
+  </header>
+  <main class="sc-principal">
+    <div id="contenido"></div>
+  </main>
+  <script>
+    (function () {
+      var e = document.getElementById('estado-conexion');
+      function ajustar() {
+        e.textContent = navigator.onLine ? 'En línea' : 'Sin conexión';
+        if (navigator.onLine) { e.setAttribute('data-en-linea', ''); } else { e.removeAttribute('data-en-linea'); }
+      }
+      window.addEventListener('online', ajustar); window.addEventListener('offline', ajustar); ajustar();
+    })();
+  </script>
+  <script type="module" src="{% static 'sinconexion/app.js' %}"></script>
+</body>
+</html>

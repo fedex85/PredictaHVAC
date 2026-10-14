@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}PredictaHVAC - Órdenes de trabajo{% endblock %}
+
+{% block header %}
+<header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div>
+        <h1 class="text-xl font-bold text-white">{% if es_tecnico %}Mis órdenes{% else %}Órdenes de trabajo{% endif %}</h1>
+        <p class="text-xs text-slate-400">{% if puede_gestionar %}Crea, asigna y aprueba las intervenciones{% else %}Tus intervenciones asignadas{% endif %}</p>
+    </div>
+    {% if puede_gestionar %}
+    <div class="flex items-center gap-2">
+    <a href="{% url 'preventivos' %}" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg transition">Preventivos</a>
+    <a href="{% url 'orden_crear' %}" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-cyan-600/20 flex items-center space-x-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+        <span>Nueva orden</span>
+    </a>
+    </div>
+    {% endif %}
+</header>
+{% endblock %}
+
+{% block content %}
+{% if es_tecnico %}
+{% for titulo, lista in grupos %}
+<section class="space-y-2">
+    <h2 class="text-sm font-semibold {% if titulo == 'Requieren tu atención' %}text-red-300{% else %}text-slate-300{% endif %}">{{ titulo }} <span class="opacity-60">{{ lista|length }}</span></h2>
+    {% for orden in lista %}{% include 'partials/_tarjeta_orden.html' %}{% endfor %}
+</section>
+{% empty %}
+<p class="text-sm text-slate-400 bg-slate-900 border border-slate-800 rounded-xl p-6 text-center">No tienes órdenes asignadas.</p>
+{% endfor %}
+{% else %}
+<div class="flex flex-wrap gap-2">
+    {% for valor, etiqueta, n in pestanas %}
+    <a href="?{% if valor %}estado={{ valor }}{% endif %}{% if q %}{% if valor %}&{% endif %}q={{ q|urlencode }}{% endif %}" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition {% if estado == valor %}bg-cyan-600 text-white{% else %}bg-slate-900 border border-slate-800 text-slate-400 hover:text-white{% endif %}">{{ etiqueta }} <span class="opacity-70">{{ n }}</span></a>
+    {% endfor %}
+</div>
+
+<form method="get" class="flex gap-2">
+    {% if estado %}<input type="hidden" name="estado" value="{{ estado }}">{% endif %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Buscar por OT, equipo, tarea o técnico" class="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+    <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition">Buscar</button>
+</form>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+            <thead class="text-xs bg-slate-950 text-slate-400 border-b border-slate-800">
+                <tr>
+                    <th class="py-3 px-4">OT</th>
+                    <th class="py-3 px-4">Equipo</th>
+                    <th class="py-3 px-4">Tipo</th>
+                    <th class="py-3 px-4">Técnico</th>
+                    <th class="py-3 px-4">Programada</th>
+                    <th class="py-3 px-4">Estado</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+                {% for orden in pagina %}
+                <tr class="hover:bg-slate-800/50 transition">
+                    <td class="py-3 px-4"><a href="{% url 'orden_detalle' orden.id %}" class="font-semibold text-cyan-400 hover:text-cyan-300">{{ orden.codigo }}</a></td>
+                    <td class="py-3 px-4"><p class="text-white">{{ orden.equipo.codigo_identificador }}</p><p class="text-xs text-slate-500">{{ orden.equipo.ubicacion }}</p></td>
+                    <td class="py-3 px-4">
+                        <div class="flex flex-wrap gap-1">
+                        {% if orden.tipo == 'PREVENTIVO' %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Preventivo</span>
+                        {% else %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">Correctivo</span>{% endif %}
+                        {% if not orden.con_checklist %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-slate-800 text-slate-300 border border-slate-700">Sin checklist</span>{% endif %}
+                        {% if orden.n_incidencias %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30">{{ orden.n_incidencias }} incidencia{{ orden.n_incidencias|pluralize }}</span>{% endif %}
+                        {% if orden.estado == 'PENDIENTE_APROBACION' and orden.n_alta_sin_resolver %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-red-500/10 text-red-300 border border-red-500/30">Incidencias Alta sin resolver</span>{% endif %}
+                        {% if orden.estado == 'PENDIENTE_APROBACION' and orden.n_correctivas_activas %}<span class="px-2 py-1 text-xs whitespace-nowrap rounded-md bg-slate-800 text-slate-300 border border-slate-700">Bloqueada</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-slate-400">{% if orden.tecnico %}{{ orden.tecnico.get_full_name|default:orden.tecnico.username }}{% else %}<span class="text-slate-500">Sin asignar</span>{% endif %}</td>
+                    <td class="py-3 px-4 text-slate-400 whitespace-nowrap">{{ orden.fecha_programada|date:"d/m/Y"|default:"—" }}</td>
+                    <td class="py-3 px-4">{% include 'partials/_estado_ot.html' %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="py-8 px-4 text-center text-slate-500">{% if puede_gestionar %}No hay órdenes con estos filtros. Crea la primera con «Nueva orden».{% else %}No tienes órdenes asignadas con estos filtros.{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if pagina.paginator.num_pages > 1 %}
+    <div class="px-4 py-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} · {{ pagina.paginator.count }} órdenes</span>
+        <div class="space-x-2">
+            {% if pagina.has_previous %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ pagina.previous_page_number }}" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200">Anterior</a>{% endif %}
+            {% if pagina.has_next %}<a href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ pagina.next_page_number }}" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-200">Siguiente</a>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

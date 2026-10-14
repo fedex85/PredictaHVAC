@@ -1,0 +1,258 @@
+{% comment %}Fotografías y firma del cliente: bloques del panel de checklist. Edita solo el técnico asignado (ed_fotos / ed_firma).{% endcomment %}
+{% if con_evidencias %}
+<section data-bloque="FOTOS" class="space-y-3"{% if ed_fotos or ed_firma or ed_firma_tecnico %} data-evidencias data-csrf="{{ csrf_token }}"{% endif %}>
+    <h3 class="text-sm font-semibold text-slate-200">Fotografías <span data-avance="FOTOS" class="ml-1 text-xs font-normal text-slate-500">{{ avance_fotos.hechos }}/{{ avance_fotos.total }}</span></h3>
+    <p class="text-xs text-slate-400">Mínimo {{ avance_fotos.total }}: equipo, trabajo realizado y estado final.</p>
+    <div id="fotos-lista" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {% for f in fotos %}
+        <figure data-foto="{{ f.id }}" class="relative">
+            <a href="{% url 'orden_foto_ver' orden.id f.id %}" target="_blank" rel="noopener"><img src="{% url 'orden_foto_ver' orden.id f.id %}" alt="Fotografía {{ forloop.counter }} de la orden" loading="lazy" class="w-full h-28 object-cover rounded-lg border border-slate-800"></a>
+            {% if ed_fotos %}<button type="button" data-borrar-foto data-url="{% url 'orden_foto_borrar' orden.id f.id %}" class="absolute top-1 right-1 px-2 py-0.5 text-xs bg-slate-950/90 text-red-300 border border-red-500/40 rounded-md" aria-label="Eliminar fotografía {{ forloop.counter }}">Quitar</button>{% endif %}
+        </figure>
+        {% empty %}
+        <p id="fotos-vacio" class="col-span-full text-sm text-slate-500">Aún no hay fotografías.</p>
+        {% endfor %}
+    </div>
+    {% if ed_fotos %}
+    <label class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-lg cursor-pointer transition">
+        Añadir fotografía
+        <input id="foto-archivo" type="file" accept="image/*" capture="environment" multiple class="sr-only" data-url="{% url 'orden_foto_subir' orden.id %}">
+    </label>
+    <p id="foto-error" class="text-xs text-red-400" role="alert"></p>
+    {% endif %}
+</section>
+
+<section data-bloque="FIRMA" class="space-y-4">
+    <div class="flex items-baseline justify-between gap-3">
+        <h3 class="text-sm font-semibold text-slate-200">Firmas <span data-avance="FIRMA" class="ml-1 text-xs font-normal text-slate-500">{{ avance_firma.hechos }}/{{ avance_firma.total }}</span></h3>
+    </div>
+    <p class="text-xs text-slate-400">Para cerrar la orden hacen falta las dos: primero la conformidad del cliente y después la del técnico.</p>
+    {% if filas_resumen %}
+    <details class="border border-slate-800 rounded-lg p-3">
+        <summary class="text-sm text-slate-300 cursor-pointer">Resumen que se firma</summary>
+        <ul id="resumen-firma-lista" class="mt-2 divide-y divide-slate-800/70 text-xs">{% for etiqueta, valor in filas_resumen %}
+            <li class="flex items-start justify-between gap-3 py-1.5"><span class="text-slate-400">{{ etiqueta }}</span><span class="text-right font-medium {% if valor == 'OK' %}text-emerald-400{% elif valor|slice:':10' == 'Incidencia' %}text-amber-300{% elif valor == 'sin marcar' or valor == 'sin medir' %}text-red-400{% else %}text-slate-200{% endif %}">{{ valor }}</span></li>{% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+
+    <div class="border border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+            <h4 class="text-sm font-medium text-slate-100">Firma del cliente</h4>
+            {% if firma %}<p id="firma-estado" class="text-xs font-medium {% if firma_vigente %}text-emerald-400{% else %}text-amber-400{% endif %}">{% if firma_vigente %}Vigente{% else %}Hay que firmar de nuevo{% endif %}</p>{% endif %}
+        </div>
+        {% if firma %}
+        <div class="rounded-lg bg-slate-950/60 p-3 space-y-2">
+            <img src="{% url 'orden_firma_ver' orden.id %}?v={{ firma.id }}-{{ firma.firmada_en|date:'U' }}" alt="Firma de {{ firma.firmante }}" class="block w-full h-24 object-contain bg-white rounded" style="max-height:96px">
+            <div class="flex items-center justify-between gap-3 text-xs">
+                <span class="min-w-0 truncate text-slate-200">{{ firma.firmante }}</span>
+                <span class="shrink-0 text-slate-500">{{ firma.firmada_en|date:'d/m/Y H:i' }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% if ed_firma %}
+        {% if firma_vigente %}<details><summary class="text-xs text-cyan-400 cursor-pointer">Volver a firmar</summary>{% endif %}
+        <div id="firma-form" class="space-y-3 pt-2">
+            <div>
+                <label for="firma-nombre" class="block text-xs text-slate-400 mb-1">Firma del cliente: nombre de quien firma</label>
+                <input id="firma-nombre" type="text" maxlength="120" value="{% if firma %}{{ firma.firmante }}{% endif %}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500">
+            </div>
+            <canvas id="firma-lienzo" width="600" height="200" data-url="{% url 'orden_firma_guardar' orden.id %}" data-huella="{{ huella_firma }}" class="block w-full aspect-[3/1] bg-white rounded-lg touch-none" aria-label="Zona de firma del cliente"></canvas>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="firma-limpiar" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-sm font-semibold rounded-lg transition">Limpiar</button>
+                <button type="button" id="firma-guardar" class="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-lg transition">Guardar firma</button>
+            </div>
+            <p id="firma-error" class="text-sm text-red-400" role="alert"></p>
+        </div>
+        {% if firma_vigente %}</details>{% endif %}
+        {% elif not firma and orden.inicio %}
+        <p class="text-sm text-slate-500">Todavía no hay firma del cliente.</p>
+        {% endif %}
+    </div>
+
+    <div class="border border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+            <h4 class="text-sm font-medium text-slate-100">Firma del técnico</h4>
+            {% if firma_tecnico %}<p id="tec-firma-estado" class="text-xs font-medium {% if firma_tecnico_vigente %}text-emerald-400{% else %}text-amber-400{% endif %}">{% if firma_tecnico_vigente %}Vigente{% else %}Hay que firmar de nuevo{% endif %}</p>{% endif %}
+        </div>
+        {% if firma_tecnico %}
+        <div class="rounded-lg bg-slate-950/60 p-3 space-y-2">
+            <img src="{% url 'orden_firma_tecnico_ver' orden.id %}?v={{ firma_tecnico.id }}-{{ firma_tecnico.firmada_en|date:'U' }}" alt="Firma de {{ firma_tecnico.firmante }}" class="block w-full h-24 object-contain bg-white rounded" style="max-height:96px">
+            <div class="flex items-center justify-between gap-3 text-xs">
+                <span class="min-w-0 truncate text-slate-200">{{ firma_tecnico.firmante }}</span>
+                <span class="shrink-0 text-slate-500">{{ firma_tecnico.firmada_en|date:'d/m/Y H:i' }}</span>
+            </div>
+        </div>
+        {% endif %}
+        {% if ed_firma_tecnico %}
+        {% if firma_tecnico_vigente %}<details><summary class="text-xs text-cyan-400 cursor-pointer">Volver a firmar</summary>{% endif %}
+        <div id="tec-firma-form" class="space-y-3 pt-2">
+            <p class="text-xs text-slate-400">Firma: {{ request.user.get_full_name|default:request.user.username }}</p>
+            <canvas id="tec-firma-lienzo" width="600" height="200" data-url="{% url 'orden_firma_tecnico_guardar' orden.id %}" data-huella="{{ huella_firma }}" class="block w-full aspect-[3/1] bg-white rounded-lg touch-none" aria-label="Zona de firma del técnico"></canvas>
+            <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="tec-firma-limpiar" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-sm font-semibold rounded-lg transition">Limpiar</button>
+                <button type="button" id="tec-firma-guardar" class="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-lg transition">Guardar firma</button>
+            </div>
+            <p id="tec-firma-error" class="text-sm text-red-400" role="alert"></p>
+        </div>
+        {% if firma_tecnico_vigente %}</details>{% endif %}
+        {% elif not firma_tecnico and orden.inicio %}
+        <p class="text-sm text-slate-500">Todavía no hay firma del técnico. Firma después del cliente, cuando hayas revisado el resumen.</p>
+        {% endif %}
+    </div>
+</section>
+
+{% if ed_fotos or ed_firma or ed_firma_tecnico %}
+<script>
+// Guardados en curso (autoguardado de campos): la firma espera a que terminen para firmar sobre el resumen definitivo.
+window.pendientes = window.pendientes || [];
+window.rastrear = function (promesa) {
+    window.pendientes.push(promesa);
+    var quitar = function () { var i = window.pendientes.indexOf(promesa); if (i > -1) { window.pendientes.splice(i, 1); } };
+    promesa.then(quitar, quitar);
+    return promesa;
+};
+window.vaciarPendientes = function () {
+    // Soltar el foco dispara el «change» del campo que se estaba escribiendo y su guardado.
+    if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+    return new Promise(function (resolver) {
+        setTimeout(function () { Promise.all(window.pendientes.slice()).then(resolver, resolver); }, 0);
+    });
+};
+(function () {
+    var raiz = document.querySelector('[data-evidencias]');
+    if (!raiz) { return; }
+    var csrf = raiz.dataset.csrf;
+    function post(url, cuerpo) {
+        return fetch(url, {method: 'POST', body: cuerpo, credentials: 'same-origin',
+            headers: {'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function (r) {
+                var json = (r.headers.get('content-type') || '').indexOf('application/json') !== -1;
+                if (!json) { return {ok: false, j: {errores: ['No se pudo guardar (error ' + r.status + '). Recarga la página e inténtalo de nuevo.']}}; }
+                return r.json().then(function (j) { return {ok: r.ok && j.ok, j: j}; });
+            })
+            .catch(function () { return {ok: false, j: {errores: ['Sin conexión. Inténtalo de nuevo.']}}; });
+    }
+    function avance(j) {
+        window.actualizarFirma(j);
+        if (window.actualizarAvance) { window.actualizarAvance(j); return; }
+        Object.keys(j.avance || {}).forEach(function (b) {
+            var el = document.querySelector('[data-avance="' + b + '"]');
+            if (el) { el.textContent = j.avance[b].hechos + '/' + j.avance[b].total; }
+        });
+        if (window.actualizarFaltan) { window.actualizarFaltan(j.faltan || []); }
+    }
+    // Tras cada cambio sin recargar, la pantalla debe firmar sobre el resumen ACTUAL (si no, el servidor rechaza la firma).
+    window.actualizarFirma = function (j) {
+        var lienzo = document.getElementById('firma-lienzo');
+        if (lienzo && j.huella) { lienzo.dataset.huella = j.huella; }
+        var lienzoTec = document.getElementById('tec-firma-lienzo');
+        if (lienzoTec && j.huella) { lienzoTec.dataset.huella = j.huella; }
+        var estadoTec = document.getElementById('tec-firma-estado');
+        if (estadoTec && j.firma_tecnico_estado) {
+            var vigenteTec = j.firma_tecnico_estado === 'vigente';
+            estadoTec.textContent = vigenteTec ? 'Vigente' : 'Hay que firmar de nuevo';
+            estadoTec.className = 'text-xs font-medium ' + (vigenteTec ? 'text-emerald-400' : 'text-amber-400');
+        }
+        var lista = document.getElementById('resumen-firma-lista');
+        if (lista && j.resumen_firma) {
+            lista.textContent = '';
+            j.resumen_firma.forEach(function (t) {
+                var i = t.indexOf(': '), etiqueta = i < 0 ? t : t.slice(0, i), valor = i < 0 ? '' : t.slice(i + 2);
+                var li = document.createElement('li'), a = document.createElement('span'), b = document.createElement('span');
+                li.className = 'flex items-start justify-between gap-3 py-1.5';
+                a.className = 'text-slate-400'; a.textContent = etiqueta;
+                b.className = 'text-right font-medium ' + (valor === 'OK' ? 'text-emerald-400'
+                    : valor.indexOf('Incidencia') === 0 ? 'text-amber-300'
+                    : (valor === 'sin marcar' || valor === 'sin medir') ? 'text-red-400' : 'text-slate-200');
+                b.textContent = valor;
+                li.appendChild(a); li.appendChild(b); lista.appendChild(li);
+            });
+        }
+        var estado = document.getElementById('firma-estado');
+        if (estado && j.firma_estado) {
+            var vigente = j.firma_estado === 'vigente';
+            estado.textContent = vigente ? 'Vigente' : 'Hay que firmar de nuevo';
+            estado.className = 'text-xs font-medium ' + (vigente ? 'text-emerald-400' : 'text-amber-400');
+        }
+    };
+    function error(id, x) { var el = document.getElementById(id); if (el) { el.textContent = x.ok ? '' : (x.j.errores || ['No se pudo guardar.']).join(' '); } }
+
+    var archivo = document.getElementById('foto-archivo');
+    if (archivo) {
+        archivo.addEventListener('change', function () {
+            var lista = Array.prototype.slice.call(archivo.files);
+            archivo.value = '';
+            var subidas = 0;
+            lista.reduce(function (cadena, f) {
+                return cadena.then(function () {
+                    var datos = new FormData(); datos.append('archivo', f);
+                    return post(archivo.dataset.url, datos).then(function (x) {
+                        error('foto-error', x);
+                        if (x.ok) { subidas += 1; avance(x.j); }
+                    });
+                });
+            }, Promise.resolve()).then(function () { if (subidas) { location.reload(); } });
+        });
+    }
+    raiz.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-borrar-foto]');
+        if (!b) { return; }
+        post(b.dataset.url, new FormData()).then(function (x) {
+            error('foto-error', x);
+            if (x.ok) { location.reload(); }
+        });
+    });
+
+    // Lienzo de firma reutilizable: prefijo '' (cliente) o 'tec-' (técnico).
+    function iniciarFirma(p, nombreId, mensajeBlanco) {
+        var lienzo = document.getElementById(p + 'firma-lienzo');
+        if (!lienzo) { return; }
+        var ctx = lienzo.getContext('2d'), dibujando = false, hayTrazo = false;
+        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.strokeStyle = '#000';
+        function punto(e) {
+            var r = lienzo.getBoundingClientRect();
+            return {x: (e.clientX - r.left) * lienzo.width / r.width, y: (e.clientY - r.top) * lienzo.height / r.height};
+        }
+        lienzo.addEventListener('pointerdown', function (e) {
+            dibujando = true; lienzo.setPointerCapture(e.pointerId);
+            var q = punto(e); ctx.beginPath(); ctx.moveTo(q.x, q.y);
+        });
+        lienzo.addEventListener('pointermove', function (e) {
+            if (!dibujando) { return; }
+            var q = punto(e); ctx.lineTo(q.x, q.y); ctx.stroke(); hayTrazo = true;
+        });
+        ['pointerup', 'pointercancel'].forEach(function (n) { lienzo.addEventListener(n, function () { dibujando = false; }); });
+        document.getElementById(p + 'firma-limpiar').addEventListener('click', function () {
+            ctx.clearRect(0, 0, lienzo.width, lienzo.height); hayTrazo = false;
+        });
+        var boton = document.getElementById(p + 'firma-guardar'), textoBoton = boton.textContent;
+        boton.addEventListener('click', function () {
+            var aviso = document.getElementById(p + 'firma-error');
+            if (!hayTrazo) { aviso.textContent = mensajeBlanco; return; }
+            if (nombreId && !document.getElementById(nombreId).value.trim()) { aviso.textContent = 'Escribe el nombre de quien firma.'; return; }
+            boton.disabled = true; boton.textContent = 'Guardando…'; aviso.textContent = '';
+            // Primero se terminan de guardar los campos pendientes; así la huella que se firma es la definitiva.
+            window.vaciarPendientes().then(function () {
+                var datos = new FormData();
+                if (nombreId) { datos.append('firmante', document.getElementById(nombreId).value); }
+                datos.append('imagen', lienzo.toDataURL('image/png'));
+                datos.append('huella', lienzo.dataset.huella);
+                return post(lienzo.dataset.url, datos);
+            }).then(function (x) {
+                if (x.ok) { aviso.className = 'text-sm text-emerald-400'; aviso.textContent = 'Firma guardada'; avance(x.j); location.reload(); return; }
+                // El resumen cambió: se actualiza para poder firmar otra vez sin recargar ni perder el trazo.
+                if (x.j.huella) { window.actualizarFirma(x.j); }
+                aviso.className = 'text-sm text-red-400';
+                aviso.textContent = (x.j.errores || ['No se pudo guardar la firma.']).join(' ');
+                aviso.scrollIntoView({block: 'nearest'});
+                boton.disabled = false; boton.textContent = textoBoton;
+            });
+        });
+    }
+    iniciarFirma('', 'firma-nombre', 'La firma está en blanco: pide al cliente que firme.');
+    iniciarFirma('tec-', null, 'La firma está en blanco: firma en el recuadro.');
+})();
+</script>
+{% endif %}
+{% endif %}

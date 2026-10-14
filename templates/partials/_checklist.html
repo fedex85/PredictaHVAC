@@ -1,0 +1,181 @@
+{% comment %}Checklist y mediciones de una orden. Editable solo para el técnico asignado (ed_*); para el resto, solo lectura.{% endcomment %}
+{% if bloques or mediciones or catalogo_mediciones or orden.inicio %}
+<div id="checklist" class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5"{% if ed_checklist or ed_mediciones %} data-autoguardado data-csrf="{{ csrf_token }}"{% endif %}>
+    <div class="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <h2 class="text-base font-semibold text-white">Checklist y mediciones</h2>
+        <div class="flex items-center gap-3">
+            {% if sin_checklist and orden.inicio %}<span class="px-2 py-1 text-xs rounded-md bg-slate-800 text-slate-300 border border-slate-700">Sin checklist</span>{% endif %}
+            <span id="estado-guardado" class="text-xs text-slate-500" role="status" aria-live="polite"></span>
+        </div>
+    </div>
+
+    {% if revisar %}
+    <div id="revision" class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-sm space-y-2">
+        <p class="font-semibold text-white">Revisión del checklist</p>
+        <div id="revision-tabla" class="divide-y divide-slate-800 border border-slate-800 rounded-lg">
+            {% for b in bloques %}
+            <div class="flex items-center justify-between gap-3 px-3 py-2"><span class="text-slate-300">{{ b.etiqueta }}</span>
+                <span class="font-semibold tabular-nums {% if b.completo %}text-emerald-400{% else %}text-amber-300{% endif %}">{{ b.hechos }}/{{ b.total }}{% if b.completo %} · OK{% endif %}</span></div>
+            {% endfor %}
+            {% if avance_mediciones %}
+            <div class="flex items-center justify-between gap-3 px-3 py-2"><span class="text-slate-300">Mediciones</span>
+                <span class="font-semibold tabular-nums {% if avance_mediciones.hechos == avance_mediciones.total %}text-emerald-400{% else %}text-amber-300{% endif %}">{{ avance_mediciones.hechos }}/{{ avance_mediciones.total }}{% if avance_mediciones.hechos == avance_mediciones.total %} · OK{% endif %}</span></div>
+            {% endif %}
+        </div>
+        {% for b in bloques %}{% for p in b.puntos %}{% if p.resultado == 'INCIDENCIA' %}
+        <p class="text-amber-300">Incidencia ({{ p.gravedad|title }}): {{ p.texto }}{% if p.nota %}. {{ p.nota }}{% endif %}</p>
+        {% endif %}{% endfor %}{% endfor %}
+        {% if problemas_envio %}<p class="text-amber-300 font-medium">Falta para poder enviar:</p>
+        <ul class="list-disc list-inside text-amber-300">{% for p in problemas_envio %}<li>{{ p }}</li>{% endfor %}</ul>
+        {% elif en_ejecucion %}<p class="text-emerald-400">Todo completo: ya puedes enviar a aprobación.</p>{% endif %}
+        <a href="{% url 'orden_detalle' orden.id %}" class="inline-block text-xs text-cyan-400 hover:text-cyan-300">Cerrar revisión</a>
+    </div>
+    {% elif ed_checklist and bloques %}
+    <a href="?revisar=1" class="inline-block text-xs font-semibold text-cyan-400 hover:text-cyan-300">Revisar checklist</a>
+    {% endif %}
+
+    {% for b in bloques %}
+    <section data-bloque="{{ b.codigo }}" class="space-y-2">
+        <h3 class="text-sm font-semibold text-slate-200">{{ b.etiqueta }} <span data-avance="{{ b.codigo }}" class="ml-1 text-xs font-normal text-slate-500">{{ b.hechos }}/{{ b.total }}</span></h3>
+        {% for p in b.puntos %}
+        <div data-punto="{{ p.codigo }}"{% if ed_checklist %} data-url="{% url 'orden_punto' orden.id p.codigo %}"{% endif %} class="border border-slate-800 rounded-lg p-3 {% if p.resultado == 'INCIDENCIA' and not ed_checklist %}bg-amber-500/10 border-amber-500/30{% endif %}">
+            <div class="{% if ed_checklist %}flex flex-col gap-2{% else %}flex items-start justify-between gap-3{% endif %}">
+                <span class="text-sm text-slate-200{% if not ed_checklist %} min-w-0 flex-1{% endif %}">{{ p.texto }}</span>
+                {% if ed_checklist %}
+                <span class="flex gap-2">
+                    <button type="button" data-resultado="OK" aria-pressed="{% if p.resultado == 'OK' %}true{% else %}false{% endif %}" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 text-slate-300 aria-pressed:bg-emerald-600 aria-pressed:text-white aria-pressed:border-emerald-600">OK</button>
+                    <button type="button" data-resultado="INCIDENCIA" aria-pressed="{% if p.resultado == 'INCIDENCIA' %}true{% else %}false{% endif %}" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-700 text-slate-300 aria-pressed:bg-amber-600 aria-pressed:text-white aria-pressed:border-amber-600">Incidencia</button>
+                </span>
+                {% else %}
+                <span class="shrink-0 whitespace-nowrap text-right text-xs font-semibold {% if p.resultado == 'OK' %}text-emerald-400{% elif p.resultado == 'INCIDENCIA' %}text-amber-300{% else %}text-slate-500{% endif %}">{% if p.resultado == 'OK' %}OK{% elif p.resultado == 'INCIDENCIA' %}Incidencia · {{ p.gravedad|title }}{% else %}Sin marcar{% endif %}</span>
+                {% endif %}
+            </div>
+            {% if ed_checklist %}
+            <div data-detalle class="mt-2 flex flex-wrap gap-2{% if p.resultado != 'INCIDENCIA' %} hidden{% endif %}">
+                <select data-campo="gravedad" aria-label="Gravedad de la incidencia" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+                    <option value="">Elige la gravedad para guardar</option>
+                    <option value="LEVE"{% if p.gravedad == 'LEVE' %} selected{% endif %}>Leve</option>
+                    <option value="MEDIA"{% if p.gravedad == 'MEDIA' %} selected{% endif %}>Media</option>
+                    <option value="ALTA"{% if p.gravedad == 'ALTA' %} selected{% endif %}>Alta</option>
+                </select>
+                <input data-campo="nota" type="text" maxlength="255" value="{{ p.nota }}" placeholder="Nota (opcional)" aria-label="Nota de la incidencia" class="flex-1 min-w-[10rem] bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-600">
+            </div>
+            {% elif p.resultado == 'INCIDENCIA' and p.nota %}
+            <p class="mt-1 text-xs text-slate-400">{{ p.nota }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endfor %}
+
+    {% if catalogo_mediciones %}
+    <form method="post" action="{% url 'orden_mediciones' orden.id %}" class="space-y-2 border border-slate-800 rounded-lg p-3">
+        {% csrf_token %}
+        <p class="text-sm font-semibold text-slate-200">Mediciones necesarias</p>
+        <p class="text-xs text-slate-400">Las que marques serán obligatorias antes de enviar a aprobación.</p>
+        {% for c in catalogo_mediciones %}
+        <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="codigos" value="{{ c.med.codigo }}"{% if c.elegida %} checked{% endif %}> {{ c.med.etiqueta }} ({{ c.med.unidad }})</label>
+        {% endfor %}
+        <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-lg transition">Guardar selección</button>
+    </form>
+    {% endif %}
+
+    {% if mediciones %}
+    <section data-bloque="MEDICIONES" class="space-y-2">
+        <h3 class="text-sm font-semibold text-slate-200">Mediciones{% if avance_mediciones %} <span data-avance="MEDICIONES" class="ml-1 text-xs font-normal text-slate-500">{{ avance_mediciones.hechos }}/{{ avance_mediciones.total }}</span>{% endif %}</h3>
+        {% for m in mediciones %}
+        <div data-medicion="{{ m.codigo }}" class="flex items-center justify-between gap-3 border border-slate-800 rounded-lg p-3">
+            <label for="med-{{ m.codigo }}" class="text-sm text-slate-200">{{ m.etiqueta }}{% if m.rango %}<span class="block text-xs text-slate-500">Rango permitido: {{ m.rango }}</span>{% endif %}</label>
+            {% if ed_mediciones %}
+            <span class="flex items-center gap-2">
+                <input id="med-{{ m.codigo }}" data-valor type="text" inputmode="decimal" data-url="{% url 'orden_medicion' orden.id m.codigo %}" value="{% if m.valor is not None %}{{ m.valor|floatformat:'-2' }}{% endif %}" class="w-24 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-sm text-white text-right focus:outline-none focus:border-cyan-500">
+                <span class="text-xs text-slate-500 w-8">{{ m.unidad }}</span>
+            </span>
+            {% else %}
+            <span class="text-sm text-slate-300">{% if m.valor is not None %}{{ m.valor|floatformat:'-2' }} {{ m.unidad }}{% else %}—{% endif %}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% include 'partials/_evidencias.html' %}
+</div>
+
+{% if ed_checklist or ed_mediciones %}
+<script>
+(function () {
+    var raiz = document.querySelector('[data-autoguardado]');
+    if (!raiz) { return; }
+    var estado = document.getElementById('estado-guardado');
+    function aviso(texto, error) {
+        estado.textContent = texto;
+        estado.className = 'text-xs ' + (error ? 'text-red-400' : 'text-emerald-400');
+    }
+    function enviar(url, datos) {
+        aviso('Guardando…', false);
+        var promesa = fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: {'X-CSRFToken': raiz.dataset.csrf, 'X-Requested-With': 'XMLHttpRequest',
+                      'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams(datos)
+        }).then(function (r) {
+            return r.json().then(function (j) { return {ok: r.ok && j.ok, j: j}; });
+        }).then(function (x) {
+            if (x.ok) {
+                aviso('Guardado', false);
+                if (window.actualizarAvance) { window.actualizarAvance(x.j); }
+                if (window.actualizarFirma) { window.actualizarFirma(x.j); }
+                return true;
+            }
+            aviso((x.j.errores || ['No se pudo guardar'])[0], true);
+            return false;
+        }).catch(function () { aviso('No se pudo guardar. Revisa la conexión.', true); return false; });
+        return window.rastrear ? window.rastrear(promesa) : promesa;
+    }
+    function guardarPunto(fila) {
+        var marcado = fila.querySelector('[data-resultado][aria-pressed="true"]');
+        if (!marcado) { return; }
+        var datos = {resultado: marcado.dataset.resultado};
+        if (datos.resultado === 'INCIDENCIA') {
+            datos.gravedad = fila.querySelector('[data-campo="gravedad"]').value;
+            datos.nota = fila.querySelector('[data-campo="nota"]').value;
+            if (!datos.gravedad) { aviso('Elige la gravedad para guardar la incidencia.', true); return; }
+        }
+        enviar(fila.dataset.url, datos);
+    }
+    raiz.addEventListener('click', function (e) {
+        var boton = e.target.closest('[data-resultado]');
+        if (!boton) { return; }
+        var fila = boton.closest('[data-punto]');
+        fila.querySelectorAll('[data-resultado]').forEach(function (b) { b.setAttribute('aria-pressed', b === boton ? 'true' : 'false'); });
+        // Se oculta con la clase `hidden` (el atributo hidden pierde frente a `flex`): con OK no debe verse la gravedad.
+        fila.querySelector('[data-detalle]').classList.toggle('hidden', boton.dataset.resultado !== 'INCIDENCIA');
+        if (boton.dataset.resultado === 'INCIDENCIA' && !fila.querySelector('[data-campo="gravedad"]').value) {
+            aviso('Elige la gravedad para guardar la incidencia.', true);
+            return;
+        }
+        guardarPunto(fila);
+    });
+    raiz.addEventListener('change', function (e) {
+        var campo = e.target;
+        var fila = campo.closest('[data-punto]');
+        if (fila && campo.dataset.campo) { guardarPunto(fila); return; }
+        if (campo.hasAttribute('data-valor')) {
+            enviar(campo.dataset.url, {valor: campo.value}).then(function (ok) {
+                campo.setAttribute('aria-invalid', ok ? 'false' : 'true');
+                campo.classList.toggle('border-red-500', !ok);
+            });
+        }
+    });
+    window.actualizarAvance = function (j) {
+        Object.keys(j.avance || {}).forEach(function (b) {
+            var el = document.querySelector('[data-avance="' + b + '"]');
+            if (el) { el.textContent = j.avance[b].hechos + '/' + j.avance[b].total; }
+        });
+        if (window.actualizarFaltan) { window.actualizarFaltan(j.faltan || []); }
+    };
+})();
+</script>
+{% endif %}
+{% endif %}

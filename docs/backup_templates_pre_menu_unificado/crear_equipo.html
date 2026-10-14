@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PredictaHVAC - Registrar Nuevo Equipo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRCode.js CDN para generación frontend -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col md:flex-row font-sans pb-16 md:pb-0">
+
+    <!-- NAVEGACIÓN LATERAL (ESCRITORIO) -->
+    <aside id="sidebar" class="hidden md:flex md:w-64 bg-slate-900 border-r border-slate-800 flex-col justify-between p-4 shrink-0 h-screen sticky top-0">
+        <div>
+            <!-- LOGO / BRANDING -->
+            <div class="flex items-center space-x-3 px-2 py-4 mb-6 border-b border-slate-800">
+                <div class="p-2 bg-cyan-600 rounded-lg text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <span class="text-xl font-bold tracking-wide text-white">PredictaHVAC</span>
+            </div>
+
+            <!-- MENÚ PRINCIPAL -->
+            <nav class="space-y-1">
+                <a href="{% url 'dashboard' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="{% url 'equipos' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl bg-cyan-600 text-white font-medium shadow-lg shadow-cyan-600/30">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                    </svg>
+                    <span>Equipos A/C</span>
+                </a>
+
+                <a href="{% url 'historial' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                    <span>Historial Servicios</span>
+                </a>
+
+                <a href="{% url 'calendario' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span>Calendario</span>
+                </a>
+
+                <a href="{% url 'ia_assistant' %}" class="flex items-center space-x-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition duration-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Asistente IA</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- USUARIO EN PANEL LATERAL -->
+        <div class="border-t border-slate-800 pt-4 px-2 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center font-bold text-cyan-400 border border-cyan-500/30">
+                    {{ request.user.username|slice:":1"|upper|default:"U" }}
+                </div>
+                <div class="text-sm">
+                    <p class="font-medium text-white">{{ request.user.username|default:"Técnico" }}</p>
+                    <p class="text-xs text-slate-400">Operador</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ÁREA DE CONTENIDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        <!-- ENCABEZADO SUPERIOR -->
+        <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div class="flex items-center space-x-4">
+                <a href="{% url 'equipos' %}" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-xl font-bold text-white">Registrar Nuevo Equipo</h1>
+                    <p class="text-xs text-slate-400">Completa la ficha técnica para vincular la unidad y generar su código QR</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENIDO FORMULARIO Y PREVISUALIZACIÓN DE QR -->
+        <div class="p-6">
+            <form method="POST" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {% csrf_token %}
+
+                <!-- COLUMNA IZQUIERDA Y CENTRO: DATOS DEL EQUIPO (2 COLUMNAS EN LG) -->
+                <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-5">
+                    {% if form.errors %}
+                    <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3">
+                        <p class="font-semibold mb-1">No se pudo guardar el equipo:</p>
+                        <ul class="list-disc list-inside">
+                            {% for campo in form %}{% for error in campo.errors %}<li>{{ campo.label }}: {{ error }}</li>{% endfor %}{% endfor %}
+                            {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3">Información de la Unidad</h2>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Nombre del Equipo -->
+                        <div class="sm:col-span-2">
+                            <label for="nombre" class="block text-xs font-medium text-slate-300 mb-1">Nombre o Identificador del Equipo *</label>
+                            <input type="text" id="nombre" name="nombre" required value="{{ form.nombre.value|default:'' }}" placeholder="Ej. Chiller Principal #2" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <!-- Código identificador -->
+                        <div>
+                            <label for="codigo_identificador" class="block text-xs font-medium text-slate-300 mb-1">Código Identificador *</label>
+                            <input type="text" id="codigo_identificador" name="codigo_identificador" required maxlength="50" value="{{ form.codigo_identificador.value|default:'' }}" placeholder="Ej. CH-002" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <!-- Tipo de equipo (opciones estáticas si no se usa Form de Django) -->
+                        <div>
+                            <label for="tipo" class="block text-xs font-medium text-slate-300 mb-1">Tipo de Equipo *</label>
+                            <select id="tipo" name="tipo" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition">
+                                <option value="CHILLER">Chiller / Enfriador de Agua</option>
+                                <option value="MINI_SPLIT">Mini Split</option>
+                                <option value="SPLIT">Split</option>
+                                <option value="VRF">Sistema VRF / VRV</option>
+                                <option value="AHU">Manejadora de Aire (AHU)</option>
+                                <option value="ROOFTOP">Unidad Paquete (Rooftop)</option>
+                                <option value="OTRO">Otro / Industrial</option>
+                            </select>
+                        </div>
+
+                        <!-- Ubicación -->
+                        <div>
+                            <label for="ubicacion" class="block text-xs font-medium text-slate-300 mb-1">Ubicación / Área *</label>
+                            <input type="text" id="ubicacion" name="ubicacion" required value="{{ form.ubicacion.value|default:'' }}" placeholder="Ej. Piso 3 - Cuarto de Máquinas" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <!-- Modelo / Serie -->
+                        <div>
+                            <label for="modelo" class="block text-xs font-medium text-slate-300 mb-1">Modelo / Serie *</label>
+                            <input type="text" id="modelo" name="modelo" required value="{{ form.modelo.value|default:'' }}" placeholder="Ej. Trane RTWD-120" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <!-- Capacidad -->
+                        <div>
+                            <label for="capacidad" class="block text-xs font-medium text-slate-300 mb-1">Capacidad *</label>
+                            <input type="text" id="capacidad" name="capacidad" required value="{{ form.capacidad.value|default:'' }}" placeholder="Ej. 120 TR o 60,000 BTU" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+
+                        <!-- Tipo de Refrigerante -->
+                        <div>
+                            <label for="refrigerante" class="block text-xs font-medium text-slate-300 mb-1">Tipo de Refrigerante *</label>
+                            <select id="refrigerante" name="refrigerante" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition">
+                                <option value="R-410A">R-410A</option>
+                                <option value="R-134a">R-134a</option>
+                                <option value="R-22">R-22</option>
+                                <option value="R-32">R-32</option>
+                                <option value="R-407C">R-407C</option>
+                                <option value="Otro">Otro / Agua-Glicol</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Campo Fecha de Instalación (Homologado con la cuadrícula estándar del formulario) -->
+                        <div>
+                            <label for="fecha_instalacion" class="block text-xs font-medium text-slate-300 mb-1">Fecha de Instalación *</label>
+                            <input type="date" id="fecha_instalacion" name="fecha_instalacion" required value="{{ form.fecha_instalacion.value|default:'' }}" placeholder="Seleccionar fecha" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition">
+                        </div>
+                    <div class="pt-4 border-t border-slate-800 flex justify-center space-x-3">
+                        <a href="{% url 'equipos' %}" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">Cancelar</a>
+                        <button type="submit" class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-cyan-600/20">Guardar Equipo</button>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: GENERADOR Y PREVISUALIZACIÓN DE CÓDIGO QR -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col justify-between items-center text-center">
+                    <div class="w-full">
+                        <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3 mb-4">Código QR Generado</h2>
+                        <p class="text-xs text-slate-400 mb-6">Este código contiene la ficha digital para escaneo directo desde la app.</p>
+
+                        <!-- CONTENEDOR DEL CÓDIGO QR -->
+                        <div class="flex justify-center items-center p-4 bg-white rounded-xl shadow-inner w-48 h-48 mx-auto">
+                            <div id="qrcode"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-full mt-6 space-y-2">
+                        <p id="qr-status" class="text-xs font-mono text-cyan-400 break-all">Completa el formulario para actualizar</p>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </main>
+
+    <!-- NAVEGACIÓN INFERIOR (MÓVIL) -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-2 flex justify-around items-center z-50">
+        <a href="{% url 'dashboard' %}" class="flex flex-col items-center text-xs text-slate-400 hover:text-cyan-400 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
+            </svg>
+            <span>Dashboard</span>
+        </a>
+        <a href="{% url 'equipos' %}" class="flex flex-col items-center text-xs text-cyan-400 font-bold py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span>Equipos</span>
+        </a>
+        <a href="{% url 'historial' %}" class="flex flex-col items-center text-xs text-slate-400 hover:text-cyan-400 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <span>Historial</span>
+        </a>
+        <a href="{% url 'calendario' %}" class="flex flex-col items-center text-xs text-slate-400 hover:text-cyan-400 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Calendario</span>
+        </a>
+        <a href="{% url 'ia_assistant' %}" class="flex flex-col items-center text-xs text-slate-400 hover:text-cyan-400 py-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>IA</span>
+        </a>
+    </div>
+
+    <!-- SCRIPT DE GENERACIÓN DINÁMICA DE QR -->
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const qrContainer = document.getElementById("qrcode");
+    const statusText = document.getElementById("qr-status");
+
+    if (!qrContainer) return;
+
+    function actualizarQR() {
+        const nombre = document.getElementById('nombre')?.value.trim() || 'Nuevo Equipo';
+        const codigo = document.getElementById('codigo_identificador')?.value.trim() || 'N/A';
+        const modelo = document.getElementById('modelo')?.value.trim() || 'N/A';
+        const ubicacion = document.getElementById('ubicacion')?.value.trim() || 'N/A';
+        const capacidad = document.getElementById('capacidad')?.value.trim() || 'N/A';
+        const refrigerante = document.getElementById('refrigerante')?.value || 'R-410A';
+        const fecha = document.getElementById('fecha_instalacion')?.value || 'N/A';
+
+        const payload = `EQUIPO:${nombre}|COD:${codigo}|MOD:${modelo}|UBIC:${ubicacion}|CAP:${capacidad}|REF:${refrigerante}|FECHA:${fecha}`;
+
+        if (typeof QRCode === 'undefined') {
+            if (statusText) statusText.textContent = "Cargando generador QR...";
+            return;
+        }
+
+        // Limpieza explícita del contenedor para evitar bloques vacíos
+        qrContainer.innerHTML = "";
+        
+        new QRCode(qrContainer, {
+            text: payload,
+            width: 160,
+            height: 160,
+            colorDark: "#0f172a",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        if (statusText) statusText.textContent = `${nombre} (${codigo})`;
+    }
+
+    const inputs = ['nombre', 'codigo_identificador', 'tipo', 'ubicacion', 'modelo', 'capacidad', 'refrigerante', 'fecha_instalacion'];
+    inputs.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', actualizarQR);
+            element.addEventListener('change', actualizarQR);
+        }
+    });
+
+    actualizarQR();
+});
+</script>
+</body>
+</html>

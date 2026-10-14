@@ -1,0 +1,4 @@
+{# Orden en el calendario. Variable: orden #}
+<a href="{% url 'orden_detalle' orden.id %}" data-chip-orden="{{ orden.id }}" title="{{ orden.codigo }} · {{ orden.equipo.nombre }} · {{ orden.get_estado_display }}" class="block truncate px-2 py-1 rounded-md text-xs border {% if orden.estado == 'PENDIENTE' %}bg-slate-500/10 text-slate-300 border-slate-500/30{% elif orden.estado == 'ASIGNADA' %}bg-cyan-500/10 text-cyan-300 border-cyan-500/20{% elif orden.estado == 'EN_EJECUCION' %}bg-amber-500/10 text-amber-300 border-amber-500/20{% elif orden.estado == 'PENDIENTE_APROBACION' %}bg-violet-500/10 text-violet-300 border-violet-500/20{% else %}bg-emerald-500/10 text-emerald-300 border-emerald-500/20{% endif %}">
+    <span class="font-semibold">{{ orden.codigo }}</span> {{ orden.equipo.codigo_identificador }}{% if orden.tipo != 'PREVENTIVO' %} · Correctivo{% endif %}
+</a>

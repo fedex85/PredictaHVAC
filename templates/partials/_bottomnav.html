@@ -1,0 +1,46 @@
+{# Navegación inferior única (móvil). Variable: seccion #}
+{% if es_tecnico %}
+<div data-bottomnav="tecnico" class="menu-marino md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-2 flex justify-around items-center z-50">
+  <a href="{% url 'ordenes' %}" data-bottomnav-item class="flex flex-col items-center justify-center flex-1 min-h-[48px] text-xs py-1 {% if seccion == 'ordenes' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg><span>Mis órdenes</span>
+  </a>
+  <a href="{% url 'equipos' %}" data-bottomnav-item class="flex flex-col items-center justify-center flex-1 min-h-[48px] text-xs py-1 {% if seccion == 'equipos' or seccion == 'detalle_equipo' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg><span>Equipos</span>
+  </a>
+  <a href="{% url 'agenda' %}" data-bottomnav-item class="flex flex-col items-center justify-center flex-1 min-h-[48px] text-xs py-1 {% if seccion == 'agenda' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>Agenda</span>
+  </a>
+  <a href="{% url 'historial' %}" data-bottomnav-item class="flex flex-col items-center justify-center flex-1 min-h-[48px] text-xs py-1 {% if seccion == 'historial' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg><span>Historial</span>
+  </a>
+  <a href="{% url 'ia_assistant' %}" data-bottomnav-item class="flex flex-col items-center justify-center flex-1 min-h-[48px] text-xs py-1 {% if seccion == 'ia_assistant' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg><span>Asistente</span>
+  </a>
+</div>
+{% else %}
+<div class="menu-marino md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 p-2 flex justify-around items-center z-50">
+  <a href="{% url 'dashboard' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'dashboard' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg><span>Dashboard</span>
+  </a>
+  <a href="{% url 'ordenes' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'ordenes' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg><span>OT</span>
+  </a>
+  <a href="{% url 'equipos' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'equipos' or seccion == 'crear_equipo' or seccion == 'editar_equipo' or seccion == 'detalle_equipo' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg><span>Equipos</span>
+  </a>
+  <a href="{% url 'historial' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'historial' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg><span>Historial</span>
+  </a>
+  <a href="{% url 'calendario' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'calendario' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span>Calendario</span>
+  </a>
+  <a href="{% url 'ia_assistant' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'ia_assistant' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg><span>IA</span>
+  </a>
+  {% if es_admin %}
+  <a href="{% url 'usuarios' %}" class="flex flex-col items-center text-xs py-1 {% if seccion == 'usuarios' %}text-cyan-400 font-bold{% else %}text-slate-400 hover:text-cyan-400{% endif %}">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg><span>Usuarios</span>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
