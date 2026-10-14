@@ -61,12 +61,13 @@ def equipos_view(request):
 @login_required
 def detalle_equipo(request, equipo_id):
     equipo = get_object_or_404(EquipoHVAC, id=equipo_id)
-    mantenimientos = list(equipo.mantenimientos.all().order_by('-fecha_mantenimiento'))
+    mantenimientos = equipo.mantenimientos.all().order_by('-fecha_mantenimiento')
     if es_tecnico(request.user):
-        propios = set(OrdenTrabajo.objects.filter(tecnico=request.user, mantenimiento__in=mantenimientos)
-                      .values_list('mantenimiento_id', flat=True))
+        # Misma regla que el historial y el PDF: el técnico solo ve los mantenimientos de sus propias órdenes.
+        mantenimientos = mantenimientos.filter(orden__tecnico=request.user)
+    mantenimientos = list(mantenimientos)
     for m in mantenimientos:
-        m.puede_pdf = m.id in propios if es_tecnico(request.user) else True
+        m.puede_pdf = True  # lo que se lista ya es visible para quien lo ve (ver mantenimiento_visible)
     return render(request, 'detalle_equipo.html', {
         'equipo': equipo, 'mantenimientos': mantenimientos, 'seccion': 'equipos',
         'qr_svg': qr_equipo.svg_qr(qr_equipo.url_ficha(request, equipo)),

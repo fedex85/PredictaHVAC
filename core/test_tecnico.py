@@ -79,6 +79,34 @@ class PermisosTecnicoTests(OrdenesBase):
         for m in (self.m_tec, self.m_tec2, self.m_manual):
             self.assertContains(r, self.pdf(m))
 
+    def test_ficha_de_equipo_no_filtra_trabajo_ni_nombres_de_otros_tecnicos(self):
+        """M-01: la ficha aplica la misma regla que el historial y el PDF."""
+        self.m_tec2.descripcion = 'Cambio de compresor con fuga de R410A'
+        self.m_tec2.save()
+        self.m_manual.descripcion = 'Registro manual de gerencia'
+        self.m_manual.save()
+        url = reverse('detalle_equipo', args=[self.equipo.id])
+        self.client.force_login(self.tec)
+        r = self.client.get(url)
+        self.assertContains(r, 'Responsable Uno')
+        for ajeno in ('Responsable Dos', 'Responsable Tres', 'Cambio de compresor', 'Registro manual de gerencia'):
+            self.assertNotContains(r, ajeno)
+        self.assertEqual([m.id for m in r.context['mantenimientos']], [self.m_tec.id])
+
+    def test_ficha_de_equipo_sin_trabajos_propios_muestra_el_mensaje_vacio(self):
+        self.client.force_login(self.tec_caducado)
+        r = self.client.get(reverse('detalle_equipo', args=[self.equipo.id]))
+        self.assertContains(r, 'No hay registros de mantenimiento')
+        self.assertNotContains(r, 'Responsable')
+
+    def test_ficha_de_equipo_gestion_ve_todo(self):
+        url = reverse('detalle_equipo', args=[self.equipo.id])
+        for usuario in (self.gerente, self.admin):
+            self.client.force_login(usuario)
+            r = self.client.get(url)
+            for nombre in ('Responsable Uno', 'Responsable Dos', 'Responsable Tres'):
+                self.assertContains(r, nombre)
+
     def test_equipos_en_consulta_para_el_tecnico(self):
         self.client.force_login(self.tec)
         r = self.client.get(reverse('equipos'))
