@@ -24,7 +24,9 @@
         <!-- Formulario -->
         <form method="POST" action="" class="space-y-4">
             {% csrf_token %}
-            {% if form.errors %}
+            {% if form.bloqueado_minutos %}
+            <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded-lg p-3">Demasiados intentos fallidos. Inténtalo de nuevo en unos {{ form.bloqueado_minutos }} minutos.</div>
+            {% elif form.errors %}
             <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3">Usuario o contraseña incorrectos. Inténtalo de nuevo.</div>
             {% endif %}
             
@@ -54,14 +56,8 @@
                 >
             </div>
 
-            <!-- Recordar y Recuperar -->
-            <div class="flex items-center justify-between text-sm">
-                <label class="flex items-center text-slate-400 cursor-pointer">
-                    <input type="checkbox" class="rounded border-slate-700 bg-slate-950 text-cyan-600 focus:ring-cyan-500 h-4 w-4">
-                    <span class="ml-2">Recordarme</span>
-                </label>
-                <a href="#" class="text-cyan-400 hover:text-cyan-300 font-medium">¿Olvidaste tu contraseña?</a>
-            </div>
+            <!-- Recuperación: el administrador genera un enlace de un solo uso -->
+            <p class="text-xs text-slate-500">¿Olvidaste tu contraseña? Pide a tu administrador un enlace para crear una nueva.</p>
 
             <!-- Botón de Ingreso -->
             <button 

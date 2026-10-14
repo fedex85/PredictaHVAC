@@ -1,0 +1,31 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activa la verificación en dos pasos - PredictaHVAC</title>
+    <link rel="stylesheet" href="{% static 'css/predicta.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tema.css' %}?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <meta name="theme-color" content="#0b1e47">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-5">
+        <div class="text-center">
+            <img src="{% static 'img/logo-login.png' %}" alt="PredictaHVAC" class="mx-auto" style="width:96px;height:96px">
+            <h1 class="text-lg font-bold text-white mt-2">Activa la verificación en dos pasos</h1>
+        </div>
+        <p class="text-sm text-slate-400">Tu rol exige un segundo factor. Escanea este código con Google Authenticator, Microsoft Authenticator, Authy o similar, y escribe el código de 6 dígitos que te muestre.</p>
+        <div class="mx-auto" style="width:fit-content;background:#fff;padding:12px;border-radius:8px">{{ qr }}</div>
+        <p class="text-xs text-slate-400 text-center">¿No puedes escanear? Introduce esta clave a mano:<br><code class="text-cyan-300 break-all" onclick="window.getSelection().selectAllChildren(this)">{{ secreto }}</code></p>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% if error %}<div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3">{{ error }}</div>{% endif %}
+            <input type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="7" required placeholder="123456" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition">
+            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2.5 rounded-lg shadow-md shadow-cyan-600/20 transition">Activar y continuar</button>
+        </form>
+        <form method="post" action="{% url 'logout' %}" class="text-center">{% csrf_token %}<button type="submit" class="text-xs text-slate-500 hover:text-slate-300">Cerrar sesión</button></form>
+    </div>
+</body>
+</html>

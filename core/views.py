@@ -17,7 +17,8 @@ from config.groq_service import consultar_groq
 from core.forms import (EquipoHVACForm, EquipoHVACEditForm, HistorialMantenimientoForm,
                         CrearUsuarioForm, EditarUsuarioForm)
 from core import asistente_ia, auditoria, calendario, qr_equipo
-from core.models import EquipoHVAC, HistorialMantenimiento, OrdenTrabajo, PerfilUsuario, RegistroActividad
+from core.models import (DispositivoTOTP, EquipoHVAC, HistorialMantenimiento, OrdenTrabajo, PerfilUsuario,
+                         RegistroActividad)
 from core.permisos import ADMIN, ROLES_GESTION, es_tecnico, rol_de, rol_requerido
 from core.pdf_service import generar_pdf_mantenimiento
 
@@ -255,10 +256,12 @@ def crear_usuario_view(request):
                 perfil.rol = d['rol']
                 perfil.cert_numero, perfil.cert_categoria, perfil.cert_caducidad = (
                     d['cert_numero'], d['cert_categoria'], d['cert_caducidad'])
+                perfil.debe_cambiar_clave = True  # la contraseña inicial la conoce quien crea la cuenta
                 perfil.save()
             auditoria.registrar(RegistroActividad.USUARIO_CREADO, request,
                                 detalle=f"{usuario.username} · {perfil.get_rol_display()}")
-            messages.success(request, f'Usuario {usuario.username} creado. Entrégale su contraseña por un canal seguro.')
+            messages.success(request, f'Usuario {usuario.username} creado. Entrégale su contraseña por un canal seguro: '
+                                      'tendrá que cambiarla en su primer acceso.')
             return redirect('usuarios')
     else:
         form = CrearUsuarioForm()
@@ -306,6 +309,8 @@ def editar_usuario_view(request, usuario_id):
                 perfil.rol = d['rol']
                 perfil.cert_numero, perfil.cert_categoria, perfil.cert_caducidad = (
                     d['cert_numero'], d['cert_categoria'], d['cert_caducidad'])
+                if d['password1'] and usuario != request.user:
+                    perfil.debe_cambiar_clave = True  # el administrador conoce la clave que fijó: debe cambiarla
                 perfil.save()
             if d['password1'] and usuario == request.user:
                 update_session_auth_hash(request, usuario)  # no cerrar la sesión de quien cambia su propia clave
@@ -314,7 +319,8 @@ def editar_usuario_view(request, usuario_id):
             messages.success(request, f'Cambios guardados para {usuario.get_full_name() or usuario.username}.')
             return redirect('usuarios')
     return render(request, 'usuario_form.html', {'form': form, 'modo': 'editar', 'usuario_obj': usuario,
-                                                 'bloqueado': bloqueado, 'seccion': 'usuarios'})
+                                                 'bloqueado': bloqueado, 'seccion': 'usuarios',
+                                                 'mfa_activo': DispositivoTOTP.objects.filter(usuario=usuario, confirmado=True).exists()})
 
 
 @rol_requerido(ADMIN)

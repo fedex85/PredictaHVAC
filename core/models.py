@@ -84,6 +84,8 @@ class PerfilUsuario(models.Model):
     cert_categoria = models.CharField('Categoría', max_length=3, choices=CATEGORIA_CHOICES, blank=True)
     cert_caducidad = models.DateField('Caducidad del certificado', null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
+    # La contraseña inicial la conoce quien creó la cuenta: se obliga a cambiarla en el primer acceso.
+    debe_cambiar_clave = models.BooleanField('Debe cambiar la contraseña', default=False)
 
     def __str__(self):
         return f"{self.usuario} ({self.get_rol_display()})"
@@ -111,6 +113,12 @@ class RegistroActividad(models.Model):
     USUARIO_EDITADO = 'USUARIO_EDITADO'
     ORDEN_CREADA = 'ORDEN_CREADA'
     ORDEN_ACTUALIZADA = 'ORDEN_ACTUALIZADA'
+    BLOQUEO_ACCESO = 'BLOQUEO_ACCESO'
+    MFA_ACTIVADO = 'MFA_ACTIVADO'
+    MFA_FALLIDO = 'MFA_FALLIDO'
+    MFA_RESTABLECIDO = 'MFA_RESTABLECIDO'
+    CLAVE_ENLACE = 'CLAVE_ENLACE'
+    CLAVE_CAMBIADA = 'CLAVE_CAMBIADA'
     ACCION_CHOICES = [
         (LOGIN, 'Inicio de sesión'),
         (LOGOUT, 'Cierre de sesión'),
@@ -125,6 +133,12 @@ class RegistroActividad(models.Model):
         (USUARIO_EDITADO, 'Usuario modificado'),
         (ORDEN_CREADA, 'Orden de trabajo creada'),
         (ORDEN_ACTUALIZADA, 'Orden de trabajo actualizada'),
+        (BLOQUEO_ACCESO, 'Acceso bloqueado por intentos fallidos'),
+        (MFA_ACTIVADO, 'Verificación en dos pasos activada'),
+        (MFA_FALLIDO, 'Código de verificación incorrecto'),
+        (MFA_RESTABLECIDO, 'Verificación en dos pasos restablecida'),
+        (CLAVE_ENLACE, 'Enlace de contraseña generado'),
+        (CLAVE_CAMBIADA, 'Contraseña cambiada'),
     ]
 
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
@@ -140,6 +154,29 @@ class RegistroActividad(models.Model):
 
     def __str__(self):
         return f"{self.fecha:%Y-%m-%d %H:%M} {self.usuario_nombre} {self.accion}"
+
+
+class BloqueoAcceso(models.Model):
+    """Contador de fallos por usuario+IP para frenar la fuerza bruta (ver core/bloqueo.py)."""
+    clave = models.CharField(max_length=255, unique=True)  # «usuario|ip» o «mfa:id|ip»
+    fallos = models.PositiveSmallIntegerField(default=0)
+    ultimo_fallo = models.DateTimeField()
+    bloqueado_hasta = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.clave} ({self.fallos})"
+
+
+class DispositivoTOTP(models.Model):
+    """Segundo factor (código de 6 dígitos de una app de autenticación) de un usuario."""
+    usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dispositivo_totp')
+    secreto = models.CharField(max_length=64)  # base32
+    confirmado = models.BooleanField(default=False)
+    ultimo_paso = models.BigIntegerField(default=0)  # último intervalo de 30 s aceptado: impide reutilizar un código
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"TOTP de {self.usuario} ({'activo' if self.confirmado else 'sin confirmar'})"
 
 
 class OrdenTrabajo(models.Model):

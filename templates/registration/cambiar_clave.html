@@ -1,0 +1,31 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cambia tu contraseña - PredictaHVAC</title>
+    <link rel="stylesheet" href="{% static 'css/predicta.css' %}">
+    <link rel="stylesheet" href="{% static 'css/tema.css' %}?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon-32.png' %}">
+    <meta name="theme-color" content="#0b1e47">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 font-sans">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 space-y-5">
+        <div class="text-center">
+            <img src="{% static 'img/logo-login.png' %}" alt="PredictaHVAC" class="mx-auto" style="width:96px;height:96px">
+            <h1 class="text-lg font-bold text-white mt-2">Cambia tu contraseña</h1>
+        </div>
+        <p class="text-sm text-slate-400 text-center">{% if user.perfil.debe_cambiar_clave %}Por seguridad debes elegir una contraseña propia antes de continuar.{% else %}Elige una contraseña nueva.{% endif %} Mínimo 12 caracteres.</p>
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+            {% if form.errors %}<div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3"><ul class="list-disc list-inside">{% for campo in form %}{% for e in campo.errors %}<li>{{ e }}</li>{% endfor %}{% endfor %}{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+            <div><label for="{{ form.old_password.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">Contraseña actual</label><input type="password" name="old_password" id="{{ form.old_password.id_for_label }}" autocomplete="current-password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition"></div>
+            <div><label for="{{ form.new_password1.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">Contraseña nueva</label><input type="password" name="new_password1" id="{{ form.new_password1.id_for_label }}" autocomplete="new-password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition"></div>
+            <div><label for="{{ form.new_password2.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">Repite la contraseña nueva</label><input type="password" name="new_password2" id="{{ form.new_password2.id_for_label }}" autocomplete="new-password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition"></div>
+            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2.5 rounded-lg shadow-md shadow-cyan-600/20 transition">Guardar contraseña</button>
+        </form>
+        <form method="post" action="{% url 'logout' %}" class="text-center">{% csrf_token %}<button type="submit" class="text-xs text-slate-500 hover:text-slate-300">Cerrar sesión</button></form>
+    </div>
+</body>
+</html>

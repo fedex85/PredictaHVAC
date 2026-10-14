@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.acceso.AccesoSeguroMiddleware',  # cambio obligatorio de contraseña y segundo factor (TOTP)
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -117,6 +118,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 12},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -173,6 +175,26 @@ if os.getenv('ALMACENAMIENTO') == 'nube':
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Control de acceso (A-02, M-03, M-06)
+def _bool_env(nombre, por_defecto):
+    return (os.getenv(nombre) or por_defecto).lower() in ('1', 'true', 'yes')  # vacío = valor por defecto
+
+# Bloqueo por usuario+IP tras N fallos seguidos
+ACCESO_MAX_FALLOS = int(os.getenv('ACCESO_MAX_FALLOS', '5'))
+ACCESO_BLOQUEO_MINUTOS = int(os.getenv('ACCESO_BLOQUEO_MINUTOS', '30'))
+# Verificación en dos pasos (TOTP) obligatoria para Administrador y Gerente. En desarrollo (DEBUG) está
+# apagada por defecto para no estorbar; en producción es obligatoria salvo que se desactive a propósito.
+MFA_OBLIGATORIO = _bool_env('DJANGO_MFA_OBLIGATORIO', '0' if DEBUG else '1')
+# Nginx envía la IP real en X-Real-IP y Gunicorn solo escucha en un socket Unix. Fuera de producción no se confía.
+PROXY_CONFIABLE = _bool_env('DJANGO_PROXY_CONFIABLE', '0' if DEBUG else '1')
+# Sesión: 12 h desde la última actividad (se renueva en cada petición)
+SESSION_COOKIE_AGE = int(os.getenv('SESSION_HORAS', '12')) * 3600
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+# Los enlaces de contraseña que genera el administrador caducan pronto y solo valen una vez
+PASSWORD_RESET_TIMEOUT = int(os.getenv('ENLACE_CLAVE_HORAS', '4')) * 3600
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration

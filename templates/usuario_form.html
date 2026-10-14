@@ -38,7 +38,7 @@
         <div><label for="{{ form.password2.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">{{ form.password2.label }}</label>{{ form.password2 }}</div>
         <div><label for="{{ form.rol.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">{{ form.rol.label }}</label>{{ form.rol }}</div>
     </div>
-    <p class="text-xs text-slate-500">La contraseña debe tener al menos 8 caracteres, no ser común ni solo números.</p>
+    <p class="text-xs text-slate-500">La contraseña debe tener al menos 12 caracteres, no ser común ni solo números. La persona deberá cambiarla en su primer acceso.</p>
     <fieldset class="border-t border-slate-800 pt-4">
         <legend class="text-sm font-semibold text-white pr-2">Certificado de gases fluorados</legend>
         <p class="text-xs text-slate-500 mb-3">Obligatorio para asignar al técnico a intervenciones con refrigerante. No aplica a administradores.</p>
@@ -56,4 +56,20 @@
         <button type="submit" class="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition shadow-md shadow-cyan-600/20">{% if modo == 'crear' %}Crear usuario{% else %}Guardar cambios{% endif %}</button>
     </div>
 </form>
+{% if modo == 'editar' %}
+<section class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4 max-w-3xl mt-6">
+    <h2 class="text-sm font-semibold text-white">Acceso y seguridad de la cuenta</h2>
+    <p class="text-xs text-slate-400">Verificación en dos pasos: {% if mfa_activo %}<span class="text-emerald-300">activa</span>{% else %}<span class="text-amber-300">no configurada</span>{% endif %}. Administradores y gerentes la configuran en su próximo acceso.</p>
+    <div class="flex flex-wrap gap-3">
+        <form method="post" action="{% url 'enlace_clave' usuario_obj.pk %}">{% csrf_token %}
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">Generar enlace para crear contraseña nueva</button>
+        </form>
+        {% if mfa_activo %}
+        <form method="post" action="{% url 'mfa_restablecer' usuario_obj.pk %}">{% csrf_token %}
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold rounded-lg transition">Restablecer verificación en dos pasos</button>
+        </form>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
 {% endblock %}

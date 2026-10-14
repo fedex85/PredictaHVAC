@@ -66,3 +66,22 @@ class AjustesProduccionTests(SimpleTestCase):
         r = _cargar_ajustes(DJANGO_DEBUG='1', DJANGO_SECRET_KEY='clave-solo-para-desarrollo')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.split()[5], '0')
+
+
+    # --- A-02 / M-03: el acceso reforzado está activo por defecto en producción ---------------------
+    def _valores(self, **entorno):
+        env = {k: v for k, v in os.environ.items() if not k.startswith('DJANGO_')}
+        env.update(USE_SQLITE='1', DJANGO_SECRET_KEY='x' * 50, DJANGO_ALLOWED_HOSTS='app.ejemplo.com', DJANGO_DEBUG='',
+                   DJANGO_MFA_OBLIGATORIO='', DJANGO_PROXY_CONFIABLE='')
+        env.update(entorno)
+        codigo = "import config.settings as s; print(s.MFA_OBLIGATORIO, s.PROXY_CONFIABLE, s.DEBUG)"
+        return subprocess.run([sys.executable, '-c', codigo], cwd=RAIZ, env=env, capture_output=True, text=True)
+
+    def test_en_produccion_mfa_y_proxy_estan_activos_por_defecto(self):
+        r = self._valores(DJANGO_DEBUG='0')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.split(), ['True', 'True', 'False'])
+
+    def test_en_desarrollo_no_se_confia_en_el_proxy_ni_se_exige_mfa(self):
+        r = self._valores(DJANGO_DEBUG='1')
+        self.assertEqual(r.stdout.split(), ['False', 'False', 'True'])

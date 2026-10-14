@@ -45,6 +45,8 @@ sudo -u predicta /srv/predicta/venv/bin/python manage.py collectstatic --noinput
 sudo -u predicta /srv/predicta/venv/bin/python manage.py createsuperuser
 sudo -u predicta mkdir -p media
 ```
+En producción, Administrador y Gerente deben activar la **verificación en dos pasos** (app de autenticación) la primera vez que entren: la app muestra un código QR. Si alguien pierde el teléfono, otro administrador pulsa «Restablecer verificación en dos pasos» en su ficha; si no queda ningún administrador:
+`sudo -u predicta /srv/predicta/venv/bin/python manage.py reset_mfa correo@usuario`
 
 ## 5. Gunicorn (systemd)
 
@@ -57,8 +59,10 @@ sudo systemctl status predicta        # debe estar "active (running)"
 ## 6. Nginx y certificado HTTPS
 
 ```bash
+sudo cp deploy/nginx-proxy.conf /etc/nginx/snippets/predicta-proxy.conf
 sudo sed 's/TU_DOMINIO/tu.dominio.com/g' deploy/nginx.conf | sudo tee /etc/nginx/sites-available/predicta
 ```
+El archivo de Nginx limita a 10 intentos/minuto por IP en el inicio de sesión y a 60/minuto en `/api/`, y fija `X-Real-IP` (la IP que registra la bitácora y que usa el bloqueo de Django).
 Como el certificado aún no existe, primero deja solo el bloque `listen 80` y obtén el certificado:
 ```bash
 sudo certbot --nginx -d tu.dominio.com        # crea el certificado y renueva solo (systemd timer)

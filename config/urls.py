@@ -1,11 +1,18 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from core import views, views_ordenes as vo
+from core import acceso, views, views_ordenes as vo
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('', auth_views.LoginView.as_view(template_name='registration/login.html',
+                                          authentication_form=acceso.FormularioAcceso), name='login'),
+    path('cuenta/clave/', acceso.CambiarClaveView.as_view(), name='cambiar_clave'),
+    path('cuenta/mfa/', acceso.mfa_verificar_view, name='mfa_verificar'),
+    path('cuenta/mfa/configurar/', acceso.mfa_configurar_view, name='mfa_configurar'),
+    path('cuenta/restablecer/<uidb64>/<token>/', acceso.RestablecerClaveView.as_view(), name='restablecer_clave'),
+    path('usuarios/<int:usuario_id>/enlace-clave/', acceso.enlace_clave_view, name='enlace_clave'),
+    path('usuarios/<int:usuario_id>/mfa/restablecer/', acceso.mfa_restablecer_view, name='mfa_restablecer'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('dashboard/', views.dashboard_view, name='dashboard'),
     path('equipos/', views.equipos_view, name='equipos'),
