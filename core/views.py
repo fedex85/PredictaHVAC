@@ -125,11 +125,13 @@ def consultar_ia(request):
         historial = asistente_ia.validar_historial(request.POST.get('historial'))
     except asistente_ia.ConsultaInvalida as e:
         return JsonResponse({'error': str(e)}, status=400)
-    if asistente_ia.limite_superado(request.user):
+    limite = asistente_ia.reservar_consulta(request)  # comprueba los límites y anota la consulta, de forma atómica
+    if limite == asistente_ia.POR_USUARIO:
         return JsonResponse({'error': f'Has alcanzado el límite de {asistente_ia.limite_por_hora()} consultas por hora. '
                                       'Inténtalo de nuevo más tarde.'}, status=429)
-
-    auditoria.registrar(RegistroActividad.CONSULTA_IA, request)  # no se guarda el contenido de la consulta
+    if limite == asistente_ia.GLOBAL:
+        return JsonResponse({'error': 'El asistente ha alcanzado su límite de consultas de hoy. '
+                                      'Inténtalo de nuevo mañana.'}, status=429)
     respuesta, error = consultar_groq(mensaje, historial=historial)
     if error:
         logger.error('Fallo del asistente IA: %s', error)  # el detalle técnico no se muestra al usuario

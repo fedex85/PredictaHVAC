@@ -134,3 +134,65 @@ class ConversacionPersistenteTests(OrdenesBase):
         self.assertIn('id="user-input"', html)
         self.assertIn('maxlength="1000"', html)
         self.assertNotIn('max-h-[60vh]', html)
+
+
+@patch('core.views.consultar_groq', return_value=('ok', None))
+class LimitesAtomicosTests(OrdenesBase):
+    """B-05: los límites se comprueban y se anotan en un solo paso, y hay un tope global diario."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.gerente)
+
+    def post(self):
+        return self.client.post(reverse(URL), {'mensaje': 'no enfría'})
+
+    def test_la_reserva_bloquea_la_fila_del_usuario(self, _):
+        from django.db.models.query import QuerySet
+        with patch.object(QuerySet, 'select_for_update', autospec=True, side_effect=QuerySet.select_for_update) as bloqueo:
+            self.assertEqual(self.post().status_code, 200)
+        self.assertTrue(bloqueo.called)
+
+    @override_settings(IA_LIMITE_POR_HORA=3)
+    def test_el_limite_por_usuario_es_exacto(self, _):
+        codigos = [self.post().status_code for _ in range(5)]
+        self.assertEqual(codigos, [200, 200, 200, 429, 429])
+        self.assertEqual(RegistroActividad.objects.filter(accion=RegistroActividad.CONSULTA_IA).count(), 3)
+
+    @override_settings(IA_LIMITE_DIARIO_GLOBAL=3, IA_LIMITE_POR_HORA=100)
+    def test_tope_global_diario_entre_todos_los_usuarios(self, _):
+        self.assertEqual(self.post().status_code, 200)
+        self.client.force_login(self.tec)
+        self.assertEqual(self.post().status_code, 200)
+        self.client.force_login(self.admin)
+        self.assertEqual(self.post().status_code, 200)
+        self.client.force_login(self.tec2)
+        r = self.post()
+        self.assertEqual(r.status_code, 429)
+        self.assertIn('hoy', r.json()['error'])
+        self.assertEqual(RegistroActividad.objects.filter(accion=RegistroActividad.CONSULTA_IA).count(), 3)
+
+    @override_settings(IA_LIMITE_DIARIO_GLOBAL=1, IA_LIMITE_POR_HORA=100)
+    def test_el_tope_global_se_libera_pasadas_24_horas(self, _):
+        from datetime import timedelta
+        from django.utils import timezone
+        self.assertEqual(self.post().status_code, 200)
+        self.assertEqual(self.post().status_code, 429)
+        RegistroActividad.objects.update(fecha=timezone.now() - timedelta(hours=25))
+        self.assertEqual(self.post().status_code, 200)
+
+    def test_la_consulta_queda_en_la_bitacora_con_la_ip_y_sin_contenido(self, _):
+        self.post()
+        r = RegistroActividad.objects.get(accion=RegistroActividad.CONSULTA_IA)
+        self.assertEqual(r.usuario, self.gerente)
+        self.assertEqual(r.detalle, '')
+        self.assertTrue(r.ip)
+
+    def test_la_pantalla_avisa_del_envio_a_un_tercero(self, _):
+        r = self.client.get(reverse('ia_assistant'))
+        self.assertContains(r, 'proveedor externo')
+        self.assertContains(r, 'datos personales de clientes')
+
+    def test_el_tope_global_por_defecto(self, _):
+        from django.conf import settings
+        self.assertEqual(settings.IA_LIMITE_DIARIO_GLOBAL, 300)

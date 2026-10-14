@@ -3,8 +3,11 @@ import json
 from datetime import timedelta
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 
+from core import auditoria
 from core.models import RegistroActividad
 
 MAX_MENSAJE = 1000
@@ -28,6 +31,39 @@ def consultas_en_la_ultima_hora(usuario):
 
 def limite_superado(usuario):
     return consultas_en_la_ultima_hora(usuario) >= limite_por_hora()
+
+
+def limite_diario_global():
+    return int(getattr(settings, 'IA_LIMITE_DIARIO_GLOBAL', 300))
+
+
+def consultas_globales_24h():
+    desde = timezone.now() - timedelta(hours=24)
+    return RegistroActividad.objects.filter(accion=RegistroActividad.CONSULTA_IA, fecha__gte=desde).count()
+
+
+POR_USUARIO, GLOBAL = 'usuario', 'global'
+
+
+def reservar_consulta(request):
+    """Comprueba los límites y anota la consulta en un solo paso atómico. Devuelve None si queda reservada, o
+    POR_USUARIO / GLOBAL si se superó ese límite (no se anota nada).
+
+    Antes se contaba y se anotaba en dos pasos: varias peticiones simultáneas del mismo usuario pasaban todas la
+    comprobación y superaban el límite. Aquí se bloquea la fila del usuario (SELECT ... FOR UPDATE en PostgreSQL),
+    de modo que sus consultas se serializan y cada una ve el recuento actualizado.
+    """
+    usuario = request.user
+    with transaction.atomic():
+        get_user_model().objects.select_for_update().get(pk=usuario.pk)
+        if consultas_en_la_ultima_hora(usuario) >= limite_por_hora():
+            return POR_USUARIO
+        if consultas_globales_24h() >= limite_diario_global():
+            return GLOBAL
+        RegistroActividad.objects.create(  # no se guarda el contenido de la consulta
+            usuario=usuario, usuario_nombre=usuario.get_username()[:150], accion=RegistroActividad.CONSULTA_IA,
+            ip=auditoria.ip_de(request))
+    return None
 
 
 def validar_mensaje(texto):

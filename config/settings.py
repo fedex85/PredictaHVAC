@@ -209,6 +209,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 # Consultas al asistente por usuario y hora (protege la cuota de Groq)
 IA_LIMITE_POR_HORA = int(os.getenv('IA_LIMITE_POR_HORA', '20'))
+# Tope global (todos los usuarios juntos) en 24 h, para que la cuota de Groq no se agote ni se dispare el coste
+IA_LIMITE_DIARIO_GLOBAL = int(os.getenv('IA_LIMITE_DIARIO_GLOBAL', '300'))
 # Días de antelación con que se genera la orden de un preventivo
 PREVENTIVOS_ANTICIPACION_DIAS = int(os.getenv('PREVENTIVOS_ANTICIPACION_DIAS', '15'))
 
