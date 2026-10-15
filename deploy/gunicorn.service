@@ -12,5 +12,29 @@ ExecStart=/srv/predicta/venv/bin/gunicorn config.wsgi:application --workers 3 --
 RuntimeDirectory=predicta
 Restart=on-failure
 
+# --- Endurecimiento (M-09). Comprueba el resultado con:  systemd-analyze security predicta ---
+# El proceso no puede ganar privilegios ni usar capacidades de root
+NoNewPrivileges=true
+CapabilityBoundingSet=
+RestrictSUIDSGID=true
+LockPersonality=true
+# Sistema de archivos de solo lectura salvo lo que la app necesita escribir (fotos y firmas); /run/predicta
+# (el socket) ya es escribible por RuntimeDirectory. /tmp es privado del servicio.
+ProtectSystem=strict
+ReadWritePaths=/srv/predicta/app/media
+PrivateTmp=true
+ProtectHome=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+# Solo sockets Unix (Nginx, PostgreSQL local) e IP (PostgreSQL por TCP y la API de Groq)
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+SystemCallArchitectures=native
+# Tope de memoria: una subida de imagen anómala no debe tumbar el servidor entero (ajusta a tu VPS)
+MemoryMax=1G
+
 [Install]
 WantedBy=multi-user.target

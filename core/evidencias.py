@@ -3,12 +3,13 @@ import base64
 import binascii
 import hashlib
 import io
+from datetime import timezone
 
 from django.core.files.base import ContentFile
 from django.db import transaction
 from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 
-from core.models import FirmaOT, FirmaTecnicoOT, FotoOT
+from core.models import EventoOT, FirmaOT, FirmaTecnicoOT, FotoOT
 from core.ordenes import ReglaError, _bloquear, _evento, _exigir_edicion, nombre_de
 
 FOTOS_MINIMAS = 3
@@ -176,6 +177,49 @@ def firma_tecnico_vigente(orden):
     return estado_firma_tecnico(orden) == 'vigente'
 
 
+PREFIJO_SELLO_CLIENTE = 'Sello de la firma del cliente: '
+PREFIJO_SELLO_TECNICO = 'Sello de la firma del técnico: '
+
+
+def sello_firma(firma):
+    """SHA-256 que liga la imagen de la firma con la orden, el firmante y el instante en que se firmó.
+    No incluye la `huella` del resumen porque, al reenviar una subsanación, la firma conservada pasa a cubrir
+    el resumen definitivo (`fijar_firma_conservada`). Devuelve '' si el archivo de la imagen no se puede leer."""
+    try:
+        with firma.imagen.storage.open(firma.imagen.name, 'rb') as archivo:
+            hash_imagen = hashlib.sha256(archivo.read()).hexdigest()
+    except Exception:  # archivo ausente o ilegible
+        return ''
+    partes = (str(firma.orden_id), hash_imagen, firma.firmante, firma.firmada_en.astimezone(timezone.utc).isoformat())
+    return hashlib.sha256('|'.join(partes).encode('utf-8')).hexdigest()
+
+
+def _anotar_sello(orden, request, firma, prefijo):
+    """Anota el sello en el historial de la orden (tabla distinta de la de la firma): sustituir después la imagen
+    guardada ya no coincide con lo anotado. No protege frente a quien pueda editar toda la base de datos."""
+    sello = sello_firma(firma)
+    if sello:
+        _evento(orden, request, prefijo + sello)
+
+
+def sello_anotado(orden, tecnico=False):
+    prefijo = PREFIJO_SELLO_TECNICO if tecnico else PREFIJO_SELLO_CLIENTE
+    texto = (EventoOT.objects.filter(orden=orden, texto__startswith=prefijo)
+             .order_by('-fecha', '-id').values_list('texto', flat=True).first())
+    return texto[len(prefijo):].strip() if texto else ''
+
+
+def integridad_firma(orden, tecnico=False):
+    """'sin' (no hay firma) | 'sin_sello' (firmada antes de existir el sello) | 'integra' | 'alterada'."""
+    firma = _firma_tecnico(orden) if tecnico else _firma(orden)
+    if firma is None:
+        return 'sin'
+    anotado = sello_anotado(orden, tecnico)
+    if not anotado:
+        return 'sin_sello'
+    return 'integra' if anotado == sello_firma(firma) else 'alterada'
+
+
 def _decodificar_firma(data_url):
     if not isinstance(data_url, str) or not data_url.startswith(_PREFIJO_PNG):
         raise ReglaError(MSG_FIRMA_INVALIDA)
@@ -222,6 +266,7 @@ def guardar_firma(orden, firmante, data_url, request, huella=None):
     firma.imagen.save('firma.png', ContentFile(png), save=False)
     firma.save()
     _evento(orden, request, f'Firma del cliente recogida: {firmante[:120]}')
+    _anotar_sello(orden, request, firma, PREFIJO_SELLO_CLIENTE)
     return firma
 
 
@@ -244,4 +289,5 @@ def guardar_firma_tecnico(orden, data_url, request, huella=None):
     firma.imagen.save('firma.png', ContentFile(png), save=False)
     firma.save()
     _evento(orden, request, f'Firma del técnico recogida: {firmante}')
+    _anotar_sello(orden, request, firma, PREFIJO_SELLO_TECNICO)
     return firma

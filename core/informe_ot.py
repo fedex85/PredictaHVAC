@@ -134,11 +134,15 @@ def datos_informe(orden):
             'estado': evidencias.estado_firma(orden),
             'firmante': firma.firmante if firma else '',
             'fecha': firma.firmada_en if firma else None,
+            'sello': evidencias.sello_anotado(orden) if firma else '',
+            'integridad': evidencias.integridad_firma(orden),
         },
         'firma_tecnico': {
             'estado': evidencias.estado_firma_tecnico(orden),
             'firmante': firma_tec.firmante if firma_tec else '',
             'fecha': firma_tec.firmada_en if firma_tec else None,
+            'sello': evidencias.sello_anotado(orden, True) if firma_tec else '',
+            'integridad': evidencias.integridad_firma(orden, True),
         },
     }
 

@@ -1,0 +1,73 @@
+# Integración continua: se ejecuta en cada push y en cada pull request.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_DEBUG: '1'
+      DJANGO_SECRET_KEY: clave-solo-para-ci-no-es-un-secreto-0123456789abcdef
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DB_NAME: predicta
+      DB_USER: postgres
+      DB_PASSWORD: ci
+      DB_HOST: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'   # Django 6.1 necesita Python 3.12 o superior
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Pruebas de Python
+        run: python manage.py test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pruebas de JavaScript
+        run: node --test "jstests/*.test.mjs"
+
+  configuracion-de-produccion:
+    # Comprueba que la aplicación arranca con DJANGO_DEBUG=0 (las guardas de settings.py rechazan una
+    # configuración débil) y muestra los avisos de `check --deploy`.
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: '0'
+      DJANGO_SECRET_KEY: clave-solo-para-ci-no-es-un-secreto-0123456789abcdef-0123456789
+      DJANGO_ALLOWED_HOSTS: ci.example.com
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://ci.example.com
+      DJANGO_HSTS_SECONDS: '31536000'
+      USE_SQLITE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python manage.py check --deploy
+
+  dependencias:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt

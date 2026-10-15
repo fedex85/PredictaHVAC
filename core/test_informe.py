@@ -127,6 +127,9 @@ class DatosInformeTests(InformeBase):
         self.assertEqual(vigente['estado'], 'vigente')
         self.assertEqual(vigente['firmante'], 'Cliente de prueba')
         self.assertIsNotNone(vigente['fecha'])
+        self.assertEqual(vigente['integridad'], 'integra')
+        self.assertEqual(len(vigente['sello']), 64)
+        self.assertEqual((sin['integridad'], sin['sello']), ('sin', ''))
         f.observaciones = 'Cambiadas después de firmar'
         f.save()
         obsoleta = informe_ot.datos_informe(f)['firma']

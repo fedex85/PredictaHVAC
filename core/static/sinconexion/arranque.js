@@ -4,7 +4,7 @@ import { almacenIdb } from './almacen.js';
 import { descargarOrden } from './descarga.js';
 import { leerCookie } from './util.js';
 import { sincronizarPendientes } from './sync.js';
-import { pendientes, purgarAjenos, intentarSalir } from './sesion.js';
+import { pendientes, purgarAjenos, caducarLocal, intentarSalir } from './sesion.js';
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
@@ -104,7 +104,10 @@ async function actualizarContador() {
 }
 window.addEventListener('sc-sync-fin', actualizarContador);
 actualizarContador();
-if (usuarioActual && 'indexedDB' in window) purgarAjenos(almacenIdb(), usuarioActual).catch(() => {});
+if (usuarioActual && 'indexedDB' in window) {
+  purgarAjenos(almacenIdb(), usuarioActual).catch(() => {});
+  caducarLocal(almacenIdb(), usuarioActual).then(actualizarContador).catch(() => {});  // órdenes viejas ya sincronizadas
+}
 
 function aviso(texto) {
   let caja = document.getElementById('sc-aviso-salida');

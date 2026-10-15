@@ -189,6 +189,11 @@ def _firma(d, firma_png, titulo='Firma del cliente', clave='firma', sin='Sin fir
     contenido = [_imagen_firma(firma_png) or Paragraph('<i>Firma no disponible.</i>', _NORMAL), Spacer(1, 6),
                  Paragraph(f"<b>{_texto(firma['firmante'])}</b>", _NORMAL),
                  Paragraph(f"{_fecha(firma['fecha'])} · firma manuscrita digital", _ETIQUETA)]
+    if firma.get('sello'):
+        contenido.append(Paragraph(f"Sello de integridad: {firma['sello'][:16]}...", _ETIQUETA))
+    if firma.get('integridad') == 'alterada':
+        contenido += [Spacer(1, 4), Paragraph(
+            f'<font color="{ROJO}"><b>Atención: la imagen o los datos de esta firma no coinciden con el sello registrado al firmar.</b></font>', _NORMAL)]
     if firma['estado'] == 'obsoleta':
         contenido += [Spacer(1, 4), Paragraph(
             f'<font color="{ROJO}"><b>El resumen cambió después de firmar: esta firma ya no es vigente.</b></font>', _NORMAL)]

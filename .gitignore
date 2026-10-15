@@ -7,3 +7,7 @@ staticfiles/
 media/
 node_modules/
 _respaldos/
+
+# Fuera del repositorio (no deben llegar al VPS): copias antiguas de plantillas y utilidades de desarrollo
+docs/backup_templates_pre_menu_unificado/
+probar_groq.py

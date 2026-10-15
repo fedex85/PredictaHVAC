@@ -196,6 +196,61 @@ class FirmaTests(EvidenciasBase):
     def test_sin_firma_no_es_vigente(self):
         self.assertFalse(evidencias.firma_vigente(self.o))
 
+    # --- Sello de integridad (M-10) ---
+    def test_sin_firma_la_integridad_es_sin(self):
+        self.assertEqual(evidencias.integridad_firma(self.o), 'sin')
+        self.assertEqual(evidencias.integridad_firma(self.o, tecnico=True), 'sin')
+
+    def test_firmar_anota_el_sello_en_el_historial_y_la_firma_figura_integra(self):
+        firma = self.firmar()
+        sello = evidencias.sello_firma(firma)
+        self.assertEqual(len(sello), 64)
+        self.assertTrue(self.o.eventos.filter(texto=evidencias.PREFIJO_SELLO_CLIENTE + sello).exists())
+        self.assertEqual(evidencias.sello_anotado(self.o), sello)
+        self.assertEqual(evidencias.integridad_firma(self.o), 'integra')
+
+    def test_sustituir_la_imagen_guardada_deja_la_firma_alterada(self):
+        firma = self.firmar()
+        otra = base64.b64decode(png_en_base64(trazos=False).split(',', 1)[1])
+        with open(firma.imagen.path, 'wb') as archivo:
+            archivo.write(otra)
+        self.assertEqual(evidencias.integridad_firma(self.o), 'alterada')
+
+    def test_cambiar_el_firmante_guardado_deja_la_firma_alterada(self):
+        firma = self.firmar()
+        FirmaOT.objects.filter(pk=firma.pk).update(firmante='Otra persona')
+        self.assertEqual(evidencias.integridad_firma(self.o), 'alterada')
+
+    def test_si_falta_el_archivo_de_la_firma_figura_alterada(self):
+        firma = self.firmar()
+        os.remove(firma.imagen.path)
+        self.assertEqual(evidencias.sello_firma(FirmaOT.objects.get(pk=firma.pk)), '')
+        self.assertEqual(evidencias.integridad_firma(self.o), 'alterada')
+
+    def test_una_firma_anterior_al_sello_figura_sin_sello(self):
+        self.firmar()
+        self.o.eventos.filter(texto__startswith=evidencias.PREFIJO_SELLO_CLIENTE).delete()
+        self.assertEqual(evidencias.integridad_firma(self.o), 'sin_sello')
+
+    def test_actualizar_la_huella_de_una_firma_conservada_no_altera_el_sello(self):
+        firma = self.firmar()
+        FirmaOT.objects.filter(pk=firma.pk).update(huella='x' * 64)
+        self.assertEqual(evidencias.integridad_firma(self.o), 'integra')
+
+    def test_volver_a_firmar_anota_un_sello_nuevo_y_vale_el_ultimo(self):
+        primera = self.firmar('Ana Pérez')
+        segunda = self.firmar('Ana Pérez García')  # el nombre distinto evita depender de la resolución del reloj
+        self.assertNotEqual(evidencias.sello_firma(primera), evidencias.sello_firma(segunda))
+        self.assertEqual(evidencias.sello_anotado(self.o), evidencias.sello_firma(segunda))
+        self.assertEqual(evidencias.integridad_firma(self.o), 'integra')
+
+    def test_el_sello_del_tecnico_se_anota_aparte(self):
+        self.firmar()
+        evidencias.guardar_firma_tecnico(self.o, png_en_base64(), self.req)
+        self.assertEqual(evidencias.integridad_firma(self.o, tecnico=True), 'integra')
+        self.assertNotEqual(evidencias.sello_anotado(self.o, tecnico=True), evidencias.sello_anotado(self.o))
+        self.assertTrue(self.o.eventos.filter(texto__startswith=evidencias.PREFIJO_SELLO_TECNICO).exists())
+
     def test_resumen_incluye_checklist_mediciones_observaciones_materiales_y_fotos(self):
         ordenes.marcar_punto(self.o, 'ARR_SENAL', 'INCIDENCIA', 'ALTA', 'Ruido', self.req)
         ordenes.registrar_medicion(self.o, 'TENSION', '230', self.req)

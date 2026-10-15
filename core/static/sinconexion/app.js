@@ -4,6 +4,7 @@ import { estadoLegible } from './trabajo.js';
 import { el } from './dom.js';
 import { abrirPantalla } from './pantalla.js';
 import { sincronizarPendientes } from './sync.js';
+import { caducarLocal } from './sesion.js';
 import { leerCookie } from './util.js';
 import { seccionFotos, seccionFirma, seccionFirmaTecnico } from './evidencias_ui.js';
 
@@ -60,4 +61,8 @@ window.addEventListener('hashchange', ruta);
 window.addEventListener('sc-sync-fin', () => { if (!location.hash.startsWith('#/orden/')) pintarLista(); });
 window.addEventListener('online', () => sincronizarPendientes(deps()));
 ruta();
+// Quita de la lista las órdenes viejas ya enviadas (no bloquea la pantalla; vuelve a pintar solo si borró alguna).
+caducarLocal(almacen, usuarioId)
+  .then((n) => { if (n && !location.hash.startsWith('#/orden/')) pintarLista(); })
+  .catch(() => {});
 if (navigator.onLine) sincronizarPendientes(deps());
