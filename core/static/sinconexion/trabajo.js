@@ -103,12 +103,37 @@ function cambiar(t, fn) {
 }
 
 // ---------------------------------------------------------------- cambios
-export function iniciar(t, ahora) {
+export const LLEGADAS = [['NORMAL', 'Normal'], ['RUIDO', 'Ruido anómalo del compresor'], ['FUGA', 'Fuga visible de líquido/aceite'],
+  ['NO_ARRANCA', 'No arranca'], ['CARCASA', 'Carcasa/exterior deteriorado'], ['OTRO', 'Otro']];
+
+// Mismas reglas que ordenes.identificar_equipo: URL de la ficha (QR) o código escrito a mano.
+export function equipoCoincide(t, texto) {
+  const valor = String(texto || '').trim();
+  if (!valor) return null;
+  const m = valor.match(/\/equipos\/(\d+)\/?(?:[?#].*)?$/);
+  if (m) return t.equipo.id !== undefined ? Number(m[1]) === Number(t.equipo.id) : false;
+  return valor.toLowerCase() === String(t.equipo.codigo || '').toLowerCase();
+}
+
+export function iniciar(t, ahora, llegada = {}, verificacion = {}) {
   if (t.orden.estado !== 'ASIGNADA' || t.local.inicio) throw new ErrorTrabajo('Esta orden ya está iniciada.');
+  const estado = String(llegada.estado || '');
+  const texto = String(llegada.texto || '').trim().slice(0, 255);
+  if (!LLEGADAS.some(([c]) => c === estado)) throw new ErrorTrabajo('Indica el estado en el que encuentras el equipo al llegar.');
+  if (estado === 'OTRO' && !texto) throw new ErrorTrabajo('Describe el estado de llegada («Otro»).');
+  const codigo = String(verificacion.codigo || '').trim().slice(0, 300);
+  const nota = String(verificacion.nota || '').trim().slice(0, 200);
+  const continuar = Boolean(verificacion.continuar);
+  const coincide = equipoCoincide(t, codigo) === true;
+  if (!coincide) {
+    if (!codigo && !continuar) throw new ErrorTrabajo('Identifica el equipo (escanea su QR o escribe su código) antes de iniciar.');
+    if (!continuar) throw new ErrorTrabajo(`El equipo identificado (${codigo}) no coincide con el de la orden (${t.equipo.codigo}). Vuelve a escanear, busca manualmente o continúa y reporta una incidencia.`);
+    if (!nota) throw new ErrorTrabajo('Para continuar con un equipo distinto describe la incidencia en la observación.');
+  }
   if (ahora < new Date(t.descargada_en)) {
     throw new ErrorTrabajo('La hora del teléfono es anterior a la descarga de la orden. Revisa la fecha y la hora del teléfono.');
   }
-  return cambiar(t, (c) => { c.local.inicio = ahora.toISOString(); });
+  return cambiar(t, (c) => { c.local.inicio = ahora.toISOString(); c.local.llegada = { estado, texto: estado === 'OTRO' ? texto : '' }; c.local.verificacion = { codigo, continuar: !coincide, nota: coincide ? '' : nota }; });
 }
 
 export function marcarPunto(t, codigo, { resultado, gravedad = '', nota = '' }) {

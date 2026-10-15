@@ -11,13 +11,15 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from core import agenda, auditoria, checklists, evidencias, incidencias, informe_ot, ordenes, preventivos, sincronizacion
-from core.forms import AsignarOrdenForm, EjecucionForm, MotivoForm, OrdenTrabajoForm, SubsanacionForm
-from core.models import DecisionIncidenciaOT, EquipoHVAC, OrdenTrabajo, RegistroActividad
+from core.forms import (AsignarOrdenForm, EjecucionForm, EmergenciaForm, LlegadaForm, MotivoForm, NotaAdministrativaForm,
+                        OrdenTrabajoForm, ProximaAccionForm, SubsanacionForm, VerificacionForm)
+from core.models import DecisionIncidenciaOT, EquipoHVAC, NotaAdministrativa, OrdenTrabajo, RegistroActividad
 from core.ordenes import ReglaError
 from core.permisos import ROLES_GESTION, TECNICO, es_tecnico, rol_de, rol_requerido
 from core.utiles import entero_o_none
@@ -86,15 +88,28 @@ def ordenes_view(request):
 @rol_requerido(*ROLES_GESTION)
 def orden_crear_view(request):
     inicial = {}
+    # «Continuación de OT»: nace de una orden anterior; el vínculo y el antecedente los fija el servidor, no el formulario.
+    original = None
+    cont_id = entero_o_none(request.GET.get('continuacion', '') or request.POST.get('continuacion', ''))
+    if cont_id is not None:
+        original = OrdenTrabajo.objects.select_related('equipo').filter(pk=cont_id).first()
+    if original is not None:
+        inicial.update(equipo=original.equipo_id, tipo='CORRECTIVO', criticidad=original.criticidad,
+                       requiere_refrigerante=original.requiere_refrigerante,
+                       descripcion=f'Continuación de {original.codigo}: ')
     equipo_id = entero_o_none(request.GET.get('equipo', ''))
-    if equipo_id is not None and EquipoHVAC.objects.filter(pk=equipo_id).exists():
+    if original is None and equipo_id is not None and EquipoHVAC.objects.filter(pk=equipo_id).exists():
         inicial['equipo'] = equipo_id
     form = OrdenTrabajoForm(request.POST or None, initial=inicial)
     if request.method == 'POST' and form.is_valid():
-        orden = ordenes.crear(form.save(commit=False), request)
+        nueva = form.save(commit=False)
+        if original is not None:
+            nueva.continuacion_de = original
+            nueva.antecedente = ordenes.antecedente_de(original)
+        orden = ordenes.crear(nueva, request)
         messages.success(request, f'{orden.codigo} creada ({orden.get_estado_display()}).')
         return redirect('orden_detalle', orden_id=orden.id)
-    return render(request, 'orden_form.html', {'form': form, 'seccion': 'ordenes'})
+    return render(request, 'orden_form.html', {'form': form, 'seccion': 'ordenes', 'continuacion': original})
 
 
 @login_required
@@ -173,6 +188,22 @@ def orden_detalle_view(request, orden_id):
         'puede_asignar': gestion and estado in (OrdenTrabajo.PENDIENTE, OrdenTrabajo.ASIGNADA),
         'descarga_activa': descarga_activa, 'puede_liberar': gestion and descarga_activa,
         'puede_iniciar': es_tecnico and estado == OrdenTrabajo.ASIGNADA,
+        'form_llegada': LlegadaForm(),
+        'form_verificacion': VerificacionForm(),
+        'form_proxima': ProximaAccionForm(initial={'accion': orden.proxima_accion or None, 'fecha': orden.proxima_fecha,
+                                                   'texto': orden.proxima_texto}),
+        'proxima_editable': en_ejecucion and con_evidencias and not orden.subsanacion_motivo and not orden.proxima_orden_id
+        and bool(firma),
+        'proxima_texto': dict(OrdenTrabajo.PROXIMA_CHOICES).get(orden.proxima_accion, ''),
+        'proxima_orden': orden.proxima_orden,
+        'original': orden.continuacion_de,
+        'original_visible': bool(orden.continuacion_de_id) and _visibles(usuario).filter(pk=orden.continuacion_de_id).exists(),
+        'puede_continuar': gestion and estado in (OrdenTrabajo.FINALIZADA, OrdenTrabajo.CANCELADA),
+        'puede_nota': gestion and estado in (OrdenTrabajo.FINALIZADA, OrdenTrabajo.CANCELADA),
+        'notas_admin': list(orden.notas_admin.all()) if gestion else [],
+        'envio_informe': getattr(orden, 'envio_informe', None) if gestion and estado == OrdenTrabajo.FINALIZADA else None,
+        'destinatarios_informe': orden.destinatarios_informe.split() if gestion and estado == OrdenTrabajo.FINALIZADA else [],
+        'form_nota': NotaAdministrativaForm(),
         'puede_descargar': es_tecnico and estado in sincronizacion.ESTADOS_DESCARGABLES,
         'en_ejecucion': en_ejecucion,
         'puede_aprobar': gestion and estado == OrdenTrabajo.PENDIENTE_APROBACION,
@@ -450,7 +481,66 @@ def orden_liberar_descarga_view(request, orden_id):
 @require_POST
 def orden_iniciar_view(request, orden_id):
     orden = _orden_de(request, orden_id)
-    _hacer(request, orden, ordenes.iniciar, ok='Intervención iniciada.')
+    form = LlegadaForm(request.POST)
+    llegada = (form.data.get('llegada', ''), form.data.get('llegada_texto', ''))
+    verificacion = {'codigo': request.POST.get('equipo_codigo', ''), 'nota': request.POST.get('verificacion_nota', ''),
+                    'continuar': bool(request.POST.get('continuar_discrepancia')), 'estricto': True}
+    _hacer(request, orden, lambda o, r: ordenes.iniciar(o, r, llegada=llegada, verificacion=verificacion),
+           ok='Intervención iniciada.')
+    return _volver(orden)
+
+
+@login_required
+@require_POST
+def orden_proxima_view(request, orden_id):
+    orden = _orden_de(request, orden_id)
+    form = ProximaAccionForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Elige una de las tres opciones y revisa la fecha.')
+    else:
+        d = form.cleaned_data
+        _hacer(request, orden, lambda o, r: ordenes.elegir_proxima_accion(o, d['accion'], d['fecha'], d['texto'], r),
+               ok='Próxima acción guardada.')
+    return _volver(orden)
+
+
+@rol_requerido(TECNICO)
+def orden_emergencia_view(request):
+    form = EmergenciaForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        d = form.cleaned_data
+        problema = ordenes.certificado_problema(request.user, d['requiere_refrigerante'])
+        if problema:
+            form.add_error('requiere_refrigerante', f'No puedes crearla. {problema}')
+        else:
+            orden = OrdenTrabajo(equipo=d['equipo'], tipo='CORRECTIVO', criticidad=d['criticidad'],
+                                 descripcion=f"{d['motivo']}: {d['descripcion']}", requiere_refrigerante=d['requiere_refrigerante'],
+                                 con_checklist=not d['sin_checklist'], tecnico=request.user)
+            orden = ordenes.crear_emergencia(orden, request)
+            messages.success(request, f'{orden.codigo} creada y asignada a ti. Ábrela para iniciarla.')
+            return redirect('orden_detalle', orden_id=orden.id)
+    return render(request, 'orden_emergencia.html', {'form': form, 'seccion': 'ordenes'})
+
+
+@login_required
+@require_POST
+def orden_reenviar_informe_view(request, orden_id):
+    from core import correo_informe
+    orden = _orden_de(request, orden_id)
+    _hacer(request, orden, lambda o, r: ordenes._exigir_gestion(r) or correo_informe.reenviar_manual(o, r.user),
+           ok='Informe reenviado a los destinatarios guardados en la orden.')
+    return _volver(orden)
+
+
+@login_required
+@require_POST
+def orden_nota_view(request, orden_id):
+    orden = _orden_de(request, orden_id)
+    form = NotaAdministrativaForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Escribe la nota (máximo 2000 caracteres).')
+    else:
+        _hacer(request, orden, lambda o, r: ordenes.añadir_nota(o, form.cleaned_data['texto'], r), ok='Nota añadida.')
     return _volver(orden)
 
 
@@ -512,7 +602,9 @@ def orden_enviar_view(request, orden_id):
 @require_POST
 def orden_aprobar_view(request, orden_id):
     orden = _orden_de(request, orden_id)
-    _hacer(request, orden, ordenes.aprobar, ok='Orden aprobada y finalizada. Ya figura en el historial del equipo.')
+    fecha = parse_date(request.POST.get('proxima_fecha', '') or '') if request.POST.get('proxima_fecha') else None
+    _hacer(request, orden, lambda o, r: ordenes.aprobar(o, r, fecha_revision=fecha),
+           ok='Orden aprobada y finalizada. Ya figura en el historial del equipo.')
     return _volver(orden)
 
 

@@ -6,7 +6,7 @@ import { nuevoTrabajo, AHORA } from './fixture.mjs';
 
 test('una secuencia completa deja solo fotos y firma por hacer, y se conserva al recargar', async () => {
   const almacen = almacenEnMemoria();
-  let t = T.iniciar(nuevoTrabajo(), AHORA);
+  let t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   await almacen.guardar(t);
   for (const p of t.catalogo.puntos) { t = T.marcarPunto(t, p.codigo, { resultado: 'OK' }); await almacen.guardar(t); }
   for (const m of t.catalogo.mediciones) { t = T.registrarMedicion(t, m.codigo, '12,5'); await almacen.guardar(t); }

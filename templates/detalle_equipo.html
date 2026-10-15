@@ -50,6 +50,7 @@
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
         <div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Código Identificador</dt><dd class="text-slate-200 font-medium">{{ equipo.codigo_identificador }}</dd></div>
         <div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Tipo</dt><dd class="text-slate-200 font-medium">{{ equipo.get_tipo_display }}</dd></div>
+        {% if equipo.instalacion %}<div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Cliente</dt><dd class="text-slate-200 font-medium">{{ equipo.instalacion }}</dd></div>{% endif %}
         <div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Ubicación</dt><dd class="text-slate-200 font-medium">{{ equipo.ubicacion }}</dd></div>
         <div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Modelo</dt><dd class="text-slate-200 font-medium">{{ equipo.modelo|default:"N/A" }}</dd></div>
         <div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Capacidad</dt><dd class="text-slate-200 font-medium">{{ equipo.capacidad|default:"N/A" }}</dd></div>

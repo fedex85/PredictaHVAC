@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from core import acceso, views, views_ordenes as vo
+from core import acceso, views, views_clientes as vc, views_ordenes as vo
 
 urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
@@ -27,6 +27,8 @@ urlpatterns = [
     path('sw.js', vo.service_worker_view, name='service_worker'),
     path('manifest.webmanifest', vo.manifest_view, name='manifest'),
     path('ordenes/nueva/', vo.orden_crear_view, name='orden_crear'),
+    path('ordenes/emergencia/', vo.orden_emergencia_view, name='orden_emergencia'),
+    path('ordenes/<int:orden_id>/proxima-accion/', vo.orden_proxima_view, name='orden_proxima'),
     path('ordenes/preventivos/', vo.preventivos_view, name='preventivos'),
     path('ordenes/preventivos/generar/', vo.preventivos_generar_view, name='preventivos_generar'),
     path('ordenes/<int:orden_id>/', vo.orden_detalle_view, name='orden_detalle'),
@@ -35,6 +37,7 @@ urlpatterns = [
     path('ordenes/<int:orden_id>/sincronizar/', vo.orden_sincronizar_view, name='orden_sincronizar'),
     path('ordenes/<int:orden_id>/descarga/liberar/', vo.orden_liberar_descarga_view, name='orden_liberar_descarga'),
     path('ordenes/<int:orden_id>/iniciar/', vo.orden_iniciar_view, name='orden_iniciar'),
+    path('ordenes/<int:orden_id>/nota/', vo.orden_nota_view, name='orden_nota'),
     path('ordenes/<int:orden_id>/pausar/', vo.orden_pausar_view, name='orden_pausar'),
     path('ordenes/<int:orden_id>/reanudar/', vo.orden_reanudar_view, name='orden_reanudar'),
     path('ordenes/<int:orden_id>/guardar/', vo.orden_guardar_view, name='orden_guardar'),
@@ -60,6 +63,11 @@ urlpatterns = [
     path('usuarios/crear/', views.crear_usuario_view, name='crear_usuario'),
     path('usuarios/<int:usuario_id>/editar/', views.editar_usuario_view, name='editar_usuario'),
     path('actividad/', views.actividad_view, name='actividad'),
+    path('clientes/', vc.clientes_view, name='clientes'),
+    path('clientes/<int:cliente_id>/editar/', vc.cliente_editar_view, name='cliente_editar'),
+    path('avisos/', vc.avisos_view, name='avisos'),
+    path('avisos/leer/', vc.avisos_leer_view, name='avisos_leer'),
+    path('ordenes/<int:orden_id>/reenviar-informe/', vo.orden_reenviar_informe_view, name='orden_reenviar_informe'),
     path('historial/', views.historial_view, name='historial'),
     path('ia-assistant/', views.ia_assistant_view, name='ia_assistant'),
     path('api/consultar-ia/', views.consultar_ia, name='api_consultar_ia'),

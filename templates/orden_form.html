@@ -24,6 +24,13 @@
         <p class="mt-1 text-amber-300/80">El equipo y el tipo vienen fijados. Describe a mano la tarea a realizar.</p>
     </div>
     {% endif %}
+    {% if continuacion %}
+    <input type="hidden" name="continuacion" value="{{ continuacion.id }}">
+    <div class="bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs rounded-lg p-3">
+        <p class="font-semibold">Continuación de {{ continuacion.codigo }}</p>
+        <p class="mt-1">Los datos del equipo y del incidente original se proponen aquí; puedes editarlos antes de guardar. La orden nacerá Pendiente (o Asignada si eliges técnico).</p>
+    </div>
+    {% endif %}
     {% if form.errors %}
     <div class="bg-red-500/10 border border-red-500/30 text-red-300 text-xs rounded-lg p-3">
         <p class="font-semibold mb-1">Revisa estos datos:</p>

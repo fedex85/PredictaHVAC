@@ -84,6 +84,8 @@ class OrdenesBase(TestCase):
             evidencias.subir_foto(orden, imagen_de_prueba(nombre=f'f{i}.jpg'), req)
         evidencias.guardar_firma(orden, 'Cliente de prueba', png_en_base64(), req)
         evidencias.guardar_firma_tecnico(orden, png_en_base64(), req)
+        if not orden.proxima_accion and not orden.puntos.filter(resultado='INCIDENCIA').exists():
+            ordenes.elegir_proxima_accion(orden, 'NINGUNA', None, '', req)
 
     def completar_checklist(self, orden):
         """Marca todos los puntos como OK y rellena todas las mediciones de una orden iniciada."""
@@ -192,7 +194,7 @@ class FlujoTests(OrdenesBase):
     def test_ciclo_completo_hasta_finalizar_y_registrar_en_historial(self):
         o = self.orden(OrdenTrabajo.ASIGNADA, self.tec, gas=True)
         self.client.force_login(self.tec)
-        self.post('orden_iniciar', o)
+        self.post('orden_iniciar', o, llegada='NORMAL', equipo_codigo='CH-001')
         o.refresh_from_db()
         self.assertEqual(o.estado, OrdenTrabajo.EN_EJECUCION)
         self.assertIsNotNone(o.inicio)
@@ -227,7 +229,7 @@ class FlujoTests(OrdenesBase):
     def test_inicio_bloqueado_por_certificado_caducado(self):
         o = self.orden(OrdenTrabajo.ASIGNADA, self.tec_caducado, gas=True)
         self.client.force_login(self.tec_caducado)
-        r = self.post('orden_iniciar', o)
+        r = self.post('orden_iniciar', o, llegada='NORMAL', equipo_codigo='CH-001')
         self.assertContains(r, 'No se puede iniciar la intervención')
         o.refresh_from_db()
         self.assertEqual(o.estado, OrdenTrabajo.ASIGNADA)
@@ -277,7 +279,7 @@ class FlujoTests(OrdenesBase):
     def test_cambios_quedan_en_el_registro_de_actividad(self):
         o = self.orden(OrdenTrabajo.ASIGNADA, self.tec)
         self.client.force_login(self.tec)
-        self.post('orden_iniciar', o)
+        self.post('orden_iniciar', o, llegada='NORMAL', equipo_codigo='CH-001')
         r = RegistroActividad.objects.filter(accion=RegistroActividad.ORDEN_ACTUALIZADA).get()
         self.assertIn(o.codigo, r.detalle)
         self.assertEqual(r.usuario, self.tec)
@@ -319,7 +321,7 @@ class CancelacionTests(OrdenesBase):
     def test_orden_cancelada_no_se_reabre(self):
         o = self.orden(OrdenTrabajo.CANCELADA, self.tec)
         self.client.force_login(self.tec)
-        self.post('orden_iniciar', o)
+        self.post('orden_iniciar', o, llegada='NORMAL', equipo_codigo='CH-001')
         o.refresh_from_db()
         self.assertEqual(o.estado, OrdenTrabajo.CANCELADA)
 

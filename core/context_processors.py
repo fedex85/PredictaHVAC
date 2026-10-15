@@ -1,3 +1,4 @@
+from core import avisos
 from core.models import PerfilUsuario
 from core.permisos import ADMIN, ROLES_GESTION, es_tecnico, rol_de
 
@@ -11,4 +12,5 @@ def rol(request):
         'es_admin': r == ADMIN,
         'puede_gestionar': r in ROLES_GESTION,
         'es_tecnico': es_tecnico(request.user),
+        'avisos_sin_leer': avisos.sin_leer(request.user) if r in ROLES_GESTION else 0,
     }

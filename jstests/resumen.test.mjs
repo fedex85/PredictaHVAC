@@ -33,7 +33,7 @@ const REFERENCIA = [
 ];
 
 function trabajoDeReferencia() {
-  let t = iniciar(nuevoTrabajo(), AHORA);
+  let t = iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   t = marcarPunto(t, 'INS_FILTROS', { resultado: 'OK' });
   t = marcarPunto(t, 'INS_BATERIA', { resultado: 'INCIDENCIA', gravedad: 'ALTA', nota: 'Fuga' });
   t = registrarMedicion(t, 'TENSION', '230');
@@ -48,7 +48,7 @@ test('el resumen coincide línea a línea con el del servidor', () => {
 
 test('sin materiales y fotos del servidor se suman a las locales', () => {
   let t = nuevoTrabajo({ estado_actual: { puntos: [], mediciones: [], observaciones: '', materiales: '', sin_materiales: false, fotos: 2, firma: false } });
-  t = iniciar(t, AHORA);
+  t = iniciar(t, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   t = fijarTextos(t, { sin_materiales: true });
   t = agregarFoto(t, { id: 'a', blob: { size: 1 }, nombre: 'a.jpg' });
   const r = resumenParaFirma(t);

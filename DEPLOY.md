@@ -6,15 +6,44 @@ Stack: Nginx (HTTPS) → Gunicorn → Django, con PostgreSQL. Archivos de apoyo 
 
 El modo sin conexión (Service Worker) **solo funciona por HTTPS**, y Let's Encrypt no emite certificados para una IP.
 Opciones: comprar un dominio (unos pocos €/año) o usar un subdominio gratuito (DuckDNS, afraid.org).
-Apunta un registro **A** del dominio a la IP del VPS y espera a que propague. Abre los puertos 80 y 443 (`sudo ufw allow 'Nginx Full'`).
+Apunta un registro **A** del dominio a la IP del VPS y espera a que propague. Los puertos 80 y 443 se abren en el cortafuegos del apartado 1b (no actives `ufw` antes de permitir SSH).
 
 ## 1. Paquetes y usuario
 
 ```bash
-sudo apt update && sudo apt install -y python3-venv python3-dev libpq-dev nginx postgresql certbot python3-certbot-nginx
+sudo apt update && sudo apt install -y python3-venv python3-dev libpq-dev nginx postgresql certbot python3-certbot-nginx \
+    ufw fail2ban unattended-upgrades age
 sudo adduser --system --group --home /srv/predicta predicta
 sudo usermod -aG predicta www-data   # opcional, según permisos de tu Nginx
 ```
+
+## 1b. Endurecer el servidor (antes de abrir los puertos 80 y 443)
+
+Haz esto con una segunda sesión SSH abierta, por si te equivocas. El orden importa: primero SSH, luego el cortafuegos.
+
+```bash
+# Usuario con sudo para administrar (no trabajes como root) y acceso SSH solo con clave
+sudo adduser admin && sudo usermod -aG sudo admin
+sudo -u admin mkdir -p /home/admin/.ssh && sudo -u admin nano /home/admin/.ssh/authorized_keys   # pega tu clave pública
+sudo tee /etc/ssh/sshd_config.d/99-predicta.conf <<'EOF'
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+EOF
+sudo sshd -t && sudo systemctl reload ssh      # prueba antes, en otra terminal: ssh admin@tu-servidor
+
+# Cortafuegos: SSH primero, después la web
+sudo ufw default deny incoming && sudo ufw default allow outgoing
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+
+# Frena intentos masivos de SSH (en Debian/Ubuntu la cárcel sshd viene activa por defecto) y aplica parches solos
+sudo systemctl enable --now fail2ban
+sudo dpkg-reconfigure -plow unattended-upgrades
+```
+PostgreSQL debe escuchar solo en local: comprueba que `listen_addresses = 'localhost'` (valor por defecto) y que
+`sudo ss -ltnp | grep 5432` solo muestra `127.0.0.1`. No abras el puerto 5432 en el cortafuegos.
 
 ## 2. Base de datos
 
@@ -54,7 +83,10 @@ En producción, Administrador y Gerente deben activar la **verificación en dos 
 sudo cp deploy/gunicorn.service /etc/systemd/system/predicta.service
 sudo systemctl daemon-reload && sudo systemctl enable --now predicta
 sudo systemctl status predicta        # debe estar "active (running)"
+systemd-analyze security predicta     # puntuación de exposición del servicio (cuanto más baja, mejor)
 ```
+La unidad viene endurecida (sistema de archivos de solo lectura salvo `media/`, sin privilegios, tope de memoria).
+Si algún día la app necesita escribir en otra carpeta, añádela a `ReadWritePaths=`; ajusta `MemoryMax=` al tamaño de tu VPS.
 
 ## 6. Nginx y certificado HTTPS
 
@@ -82,15 +114,30 @@ No debe quedar ningún aviso salvo, como mucho, `security.W004` (HSTS corto: nor
 Luego, desde el móvil: abre `https://tu.dominio.com`, inicia sesión como técnico y prueba "Sin conexión → descargar" (el Service Worker se registra solo si hay candado HTTPS).
 Cuando todo funcione unos días, sube `DJANGO_HSTS_SECONDS=31536000` en `.env` y reinicia (`sudo systemctl restart predicta`).
 
-## 8. Respaldos
+## 8. Respaldos (cifrados y fuera del servidor)
+
+Los respaldos contienen datos personales y firmas, por eso se **cifran con `age`** y se **copian fuera del servidor**
+(sin esa copia, un fallo del VPS se lleva también las copias). La clave privada no se guarda en el servidor.
 
 ```bash
+# 1) En TU equipo (no en el servidor): crea el par de claves y guarda la privada en un gestor de contraseñas
+age-keygen -o clave-privada-age.txt            # imprime "Public key: age1..."
+
+# 2) En el servidor: pon la clave PÚBLICA y el destino externo en el .env (ver deploy/env.production.example)
+sudo -u predicta nano /srv/predicta/app/.env
+#    RESPALDO_AGE_DESTINATARIO=age1...
+#    RESPALDO_RCLONE_DESTINO=almacen:predicta     (rclone config) -- o --
+#    RESPALDO_RSYNC_DESTINO=usuario@otro-host:/respaldos/predicta
+
+# 3) Prueba manual y programación diaria
 sudo -u predicta mkdir -p /srv/predicta/respaldos
-sudo -u predicta /srv/predicta/app/deploy/respaldo.sh      # prueba manual: debe imprimir "respaldo ... correcto"
+sudo -u predicta /srv/predicta/app/deploy/respaldo.sh      # debe imprimir "respaldo ... correcto (cifrado y copiado fuera del servidor)"
 sudo -u predicta crontab -e
 # añade:  30 3 * * * /srv/predicta/app/deploy/respaldo.sh >> /srv/predicta/respaldos/respaldo.log 2>&1
 ```
-Guarda además una copia **fuera del servidor** (rclone, rsync o S3). Prueba la restauración siguiendo `deploy/restaurar.md`.
+Si falta la clave pública el script no hace nada y falla; si falta el destino externo guarda el respaldo cifrado en local
+y termina con error (código 2), para que se note en `respaldo.log`. **Prueba la restauración** al menos una vez siguiendo
+`deploy/restaurar.md`.
 
 ## 9. Actualizar la app
 
@@ -104,6 +151,8 @@ sudo systemctl restart predicta
 
 ## Notas
 
+- Los teléfonos de los técnicos guardan órdenes descargadas: entrega a cada técnico `docs/POLITICA_USO_DISPOSITIVOS.md` (bloqueo de pantalla obligatorio).
+  Las órdenes ya enviadas se borran solas a los 3 días; el trabajo sin enviar se conserva hasta sincronizar.
 - El CSS de Tailwind está compilado en `core/static/css/predicta.css` y va en el repositorio: el servidor **no necesita Node**.
   Si añades clases nuevas en plantillas o en los JS, regéneralo en tu PC con `npm run css` (la primera vez `npm install`) y súbelo con el resto.
   El test `core.test_css` avisa si falta una clase compilada.
@@ -121,3 +170,26 @@ sudo -u predicta crontab -e
 15 6 * * * cd /srv/predicta/app && /srv/predicta/venv/bin/python manage.py generar_preventivos >> /srv/predicta/respaldos/preventivos.log 2>&1
 ```
 Para ver qué crearía sin crear nada: `python manage.py generar_preventivos --dry-run`. El comando es idempotente: ejecutarlo dos veces no duplica órdenes.
+
+## Correo: informes al cliente y avisos a gestión
+
+Al finalizar una orden se envía el informe PDF a los correos de la ficha del cliente (pantalla *Clientes*), y los avisos
+a gerentes y administradores llegan también por correo. Define en el `.env` el servidor SMTP (sin `EMAIL_HOST` los
+correos solo se escriben en la consola):
+
+```
+EMAIL_HOST=smtp.tuproveedor.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+DEFAULT_FROM_EMAIL=PredictaHVAC <informes@TU_DOMINIO>
+```
+
+Los envíos que fallan se reintentan (hasta 3 intentos en total) con este cron; al tercer fallo se avisa a gestión, que
+puede reenviar desde la orden:
+
+```
+*/10 * * * * cd /srv/predicta/app && /srv/predicta/venv/bin/python manage.py enviar_informes >> /srv/predicta/respaldos/informes.log 2>&1
+```
+
+Aprobación automática para autónomos: `APROBACION_AUTOMATICA=1` en el `.env` (por defecto desactivada).

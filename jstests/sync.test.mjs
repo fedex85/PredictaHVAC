@@ -12,7 +12,7 @@ const OK = (extra = {}) => respuesta({ ok: true, repetido: false, estado: 'EN_EJ
 
 async function preparar(configurar = (t) => t) {
   const almacen = almacenEnMemoria();
-  let t = T.iniciar(nuevoTrabajo(), AHORA);
+  let t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   t = T.marcarPunto(t, 'INS_FILTROS', { resultado: 'OK' });
   t = T.registrarMedicion(t, 'TENSION', '230');
   t = T.fijarTextos(t, { observaciones: 'obs', sin_materiales: true });
@@ -155,7 +155,7 @@ test('sin cambios locales no se envía nada', async () => {
 
 test('sincronizarPendientes procesa solo las que tienen cambios, de una en una, y salta las que dieron error', async () => {
   const almacen = almacenEnMemoria();
-  const a = T.marcarPunto(T.iniciar(nuevoTrabajo(), AHORA), 'INS_FILTROS', { resultado: 'OK' });
+  const a = T.marcarPunto(T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), 'INS_FILTROS', { resultado: 'OK' });
   const b = structuredClone(a); b.id = 8; b.orden = { ...b.orden, id: 8 };
   const c = nuevoTrabajo(); c.id = 9; c.orden = { ...c.orden, id: 9 };
   const d = structuredClone(a); d.id = 10; d.orden = { ...d.orden, id: 10 }; d.sync = { estado: 'error', paquete_id: null, mensaje: 'x' };

@@ -209,12 +209,23 @@ PASSWORD_RESET_TIMEOUT = int(os.getenv('ENLACE_CLAVE_HORAS', '4')) * 3600
 
 # Modo sin conexión: horas máximas entre descargar una orden y empezarla, y antigüedad máxima de la hora de inicio
 # declarada por el teléfono al llegar al servidor (M-02)
+# Autónomos: la orden pasa directamente a Finalizada al cerrar el técnico su parte (salvo incidencias Alta sin resolver).
+APROBACION_AUTOMATICA = os.getenv('APROBACION_AUTOMATICA', '').lower() in ('1', 'true', 'si', 'sí')
 OFFLINE_VENTANA_HORAS = int(os.getenv('OFFLINE_VENTANA_HORAS', '48'))
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Sin EMAIL_HOST los correos se escriben en la consola (desarrollo). En producción define EMAIL_HOST y las demás.
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_BACKEND = ('django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
+                 else 'django.core.mail.backends.console.EmailBackend')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', '1') != '0'
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '10'))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'PredictaHVAC <no-responder@localhost>')
 
 # Groq (asistente IA). La clave se define en el archivo .env
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')

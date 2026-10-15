@@ -212,11 +212,20 @@ export function abrirPantalla(raiz, { almacen, id, usuarioId, ahora = () => new 
     const y = window.scrollY;
     if (!T.iniciada(actual)) {
       const aviso = el('p', { clase: 'sc-error', role: 'alert' });
+      const sel = el('select', { id: 'sc-llegada', clase: 'sc-campo' },
+        el('option', { value: '', texto: 'Selecciona…' }), ...T.LLEGADAS.map(([c, n]) => el('option', { value: c, texto: n })));
+      const verCodigo = el('input', { id: 'sc-ver-codigo', type: 'text', maxlength: '300', clase: 'sc-campo', placeholder: `Código del equipo (${actual.equipo.codigo}) o contenido de su QR` });
+      const verContinuar = el('input', { id: 'sc-ver-continuar', type: 'checkbox' });
+      const verNota = el('input', { id: 'sc-ver-nota', type: 'text', maxlength: '200', clase: 'sc-campo', placeholder: 'Observación si el equipo no coincide' });
+      const otro = el('input', { id: 'sc-llegada-texto', type: 'text', maxlength: '255', clase: 'sc-campo', placeholder: 'Describe el estado (si es «Otro»)' });
       cuerpo.replaceChildren(
-        el('p', { texto: 'Cuando empieces la intervención, pulsa «Iniciar». Se guarda la hora del teléfono.' }), aviso,
+        el('p', { texto: 'Cuando empieces la intervención, indica cómo encuentras el equipo y pulsa «Iniciar». Se guarda la hora del teléfono.' }),
+        el('label', { for: 'sc-ver-codigo', texto: 'Identifica el equipo *' }), verCodigo,
+        el('label', { for: 'sc-ver-continuar' }, verContinuar, ' Continuar y reportar incidencia (el equipo no coincide)'), verNota,
+        el('label', { for: 'sc-llegada', texto: 'Estado de llegada *' }), sel, otro, aviso,
         el('button', { type: 'button', clase: 'sc-boton', texto: 'Iniciar intervención',
           onclick: () => {
-            if (aplicar((t) => T.iniciar(t, ahora()))) repintarCuerpo();
+            if (aplicar((t) => T.iniciar(t, ahora(), { estado: sel.value, texto: otro.value }, { codigo: verCodigo.value, continuar: verContinuar.checked, nota: verNota.value }))) repintarCuerpo();
             else { aviso.textContent = estado.textContent; mensaje(''); }
           } }));
     } else {

@@ -14,7 +14,7 @@ test('uuid4 tiene formato válido y es distinto cada vez', () => {
 });
 
 test('el paquete lleva solo los cambios, inicio si estaba Asignada y fotos no enviadas', () => {
-  let t = T.iniciar(nuevoTrabajo(), AHORA);
+  let t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   t = T.marcarPunto(t, 'INS_FILTROS', { resultado: 'OK' });
   t = T.registrarMedicion(t, 'TENSION', '230');
   t = T.registrarMedicion(t, 'CORRIENTE', '');
@@ -40,14 +40,14 @@ test('sin inicio si la orden ya estaba en ejecución', () => {
 });
 
 test('la firma solo viaja si está vigente', () => {
-  let t = T.guardarFirma(T.iniciar(nuevoTrabajo(), AHORA), { firmante: 'C', imagen: PNG });
+  let t = T.guardarFirma(T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), { firmante: 'C', imagen: PNG });
   assert.deepEqual(Object.keys(construirPaquete(t, () => 'X').paquete.firma).sort(), ['firmante', 'imagen', 'resumen']);
   t = T.registrarMedicion(t, 'TENSION', '1');
   assert.equal('firma' in construirPaquete(t, () => 'X').paquete, false);
 });
 
 test('el identificador se conserva en un reenvío y se renueva con cada cambio', () => {
-  let t = T.marcarPunto(T.iniciar(nuevoTrabajo(), AHORA), 'INS_FILTROS', { resultado: 'OK' });
+  let t = T.marcarPunto(T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), 'INS_FILTROS', { resultado: 'OK' });
   t = { ...t, sync: { estado: 'pendiente', paquete_id: 'ENVIADO' } };
   assert.equal(construirPaquete(t, () => 'NUEVO').paquete.paquete_id, 'ENVIADO');
   const cambiado = T.registrarMedicion(t, 'TENSION', '5');
@@ -56,7 +56,7 @@ test('el identificador se conserva en un reenvío y se renueva con cada cambio',
 });
 
 test('erroresLocales detecta incidencia sin gravedad y medición fuera de rango', () => {
-  const t = T.iniciar(nuevoTrabajo(), AHORA);
+  const t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   assert.deepEqual(erroresLocales(t), []);
   t.local.puntos = { INS_FILTROS: { resultado: 'INCIDENCIA', gravedad: '', nota: '' } };
   t.local.mediciones = { TENSION: '900' };
@@ -67,7 +67,7 @@ test('erroresLocales detecta incidencia sin gravedad y medición fuera de rango'
 });
 
 test('las fotos viajan con su identificador para que el servidor no las duplique', () => {
-  let t = T.agregarFoto(T.iniciar(nuevoTrabajo(), AHORA), foto('uno'));
+  let t = T.agregarFoto(T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), foto('uno'));
   const { paquete, fotos } = construirPaquete(t, () => 'X');
   assert.deepEqual(paquete.fotos_ids, ['uno']);
   assert.equal(fotos.length, 1);
@@ -76,10 +76,24 @@ test('las fotos viajan con su identificador para que el servidor no las duplique
 test('no se envían mediciones que ya no están elegidas', () => {
   const sin = nuevoTrabajo();
   sin.catalogo = { puntos: [], mediciones: [], mediciones_elegibles: [{ codigo: 'TENSION', etiqueta: 'Tensión', unidad: 'V', minimo: '0.00', maximo: '500.00' }] };
-  const t = T.iniciar(sin, AHORA);
+  const t = T.iniciar(sin, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   t.local.elegidas = ['TENSION'];
   t.local.mediciones = { TENSION: '12', CORRIENTE: '4' };
   const { paquete } = construirPaquete(t, () => 'X');
   assert.deepEqual(paquete.mediciones, [{ codigo: 'TENSION', valor: '12' }]);
   assert.deepEqual(erroresLocales(t), []);
+});
+
+test('el paquete lleva el estado de llegada solo mientras la orden está Asignada', () => {
+  const t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'FUGA' }, { codigo: 'SP-1' });
+  assert.deepEqual(construirPaquete(t).paquete.llegada, { estado: 'FUGA', texto: '' });
+  const ya = { ...t, orden: { ...t.orden, estado: 'EN_EJECUCION' } };
+  assert.equal('llegada' in construirPaquete(ya).paquete, false);
+});
+
+test('el paquete lleva la verificación del equipo solo mientras la orden está Asignada', () => {
+  const t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'XX', continuar: true, nota: 'otra unidad' });
+  assert.deepEqual(construirPaquete(t).paquete.verificacion, { codigo: 'XX', continuar: true, nota: 'otra unidad' });
+  const ya = { ...t, orden: { ...t.orden, estado: 'EN_EJECUCION' } };
+  assert.equal('verificacion' in construirPaquete(ya).paquete, false);
 });

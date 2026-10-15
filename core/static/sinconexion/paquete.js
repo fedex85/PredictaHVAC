@@ -15,7 +15,11 @@ export function uuid4(cripto = globalThis.crypto) {
 export function construirPaquete(t, nuevoId = uuid4) {
   const l = t.local;
   const paquete = { paquete_id: t.sync.paquete_id || nuevoId() };
-  if (t.orden.estado === 'ASIGNADA' && l.inicio) paquete.inicio = l.inicio;
+  if (t.orden.estado === 'ASIGNADA' && l.inicio) {
+    paquete.inicio = l.inicio;
+    if (l.llegada) paquete.llegada = { estado: l.llegada.estado, texto: l.llegada.texto || '' };
+    if (l.verificacion) paquete.verificacion = { codigo: l.verificacion.codigo, continuar: l.verificacion.continuar, nota: l.verificacion.nota || '' };
+  }
   if (l.elegidas) paquete.elegidas = [...l.elegidas];
   if (l.puntos) paquete.puntos = Object.entries(l.puntos).map(([codigo, p]) => ({ codigo, ...p }));
   if (l.mediciones) {

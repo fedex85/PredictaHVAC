@@ -3,22 +3,22 @@ import assert from 'node:assert/strict';
 import * as T from '../core/static/sinconexion/trabajo.js';
 import { nuevoTrabajo, AHORA } from './fixture.mjs';
 
-const iniciada = () => T.iniciar(nuevoTrabajo(), AHORA);
+const iniciada = () => T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
 const foto = (id) => ({ id, blob: { size: 5 }, nombre: `${id}.jpg` });
 const PNG = 'data:image/png;base64,AAAA';
 
 test('iniciar guarda la hora y no modifica el original', () => {
   const t = nuevoTrabajo();
-  const i = T.iniciar(t, AHORA);
+  const i = T.iniciar(t, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   assert.equal(i.local.inicio, AHORA.toISOString());
   assert.deepEqual(t.local, {});
 });
 
 test('iniciar rechaza una hora anterior a la descarga y una orden ya iniciada', () => {
-  assert.throws(() => T.iniciar(nuevoTrabajo(), new Date('2026-10-12T09:00:00Z')), /fecha y la hora/);
-  assert.throws(() => T.iniciar(iniciada(), AHORA), /ya está iniciada/);
+  assert.throws(() => T.iniciar(nuevoTrabajo(), new Date('2026-10-12T09:00:00Z'), { estado: 'NORMAL' }, { codigo: 'SP-1' }), /fecha y la hora/);
+  assert.throws(() => T.iniciar(iniciada(), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), /ya está iniciada/);
   const enEjecucion = nuevoTrabajo(); enEjecucion.orden = { ...enEjecucion.orden, estado: 'EN_EJECUCION' };
-  assert.throws(() => T.iniciar(enEjecucion, AHORA), /ya está iniciada/);
+  assert.throws(() => T.iniciar(enEjecucion, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), /ya está iniciada/);
 });
 
 test('nada se puede editar antes de iniciar', () => {
@@ -116,7 +116,7 @@ test('faltantes: observaciones obligatorias con incidencias y sin checklist; una
   assert.ok(T.faltantes(t).includes('Falta 1 fotografía'));
   const sin = nuevoTrabajo();
   sin.catalogo = { puntos: [], mediciones: [], mediciones_elegibles: [] };
-  assert.ok(T.faltantes(T.iniciar(sin, AHORA)).includes('Las observaciones técnicas son obligatorias: OT sin checklist.'));
+  assert.ok(T.faltantes(T.iniciar(sin, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' })).includes('Las observaciones técnicas son obligatorias: OT sin checklist.'));
 });
 
 test('orden completa: no falta nada', () => {
@@ -155,7 +155,7 @@ test('elegir mediciones en una OT sin checklist', () => {
   t.catalogo = { puntos: [], mediciones: [], mediciones_elegibles: [
     { codigo: 'TENSION', etiqueta: 'Tensión', unidad: 'V', minimo: '0.00', maximo: '500.00' },
     { codigo: 'CORRIENTE', etiqueta: 'Corriente', unidad: 'A', minimo: '0.00', maximo: '500.00' }] };
-  let i = T.iniciar(t, AHORA);
+  let i = T.iniciar(t, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   assert.throws(() => T.elegirMediciones(i, ['NADA']), /desconocida/);
   i = T.elegirMediciones(i, ['TENSION', 'CORRIENTE']);
   i = T.registrarMedicion(i, 'TENSION', '230');
@@ -163,13 +163,13 @@ test('elegir mediciones en una OT sin checklist', () => {
 });
 
 test('no se puede borrar una medición que el servidor ya tiene', () => {
-  const t = T.iniciar(nuevoTrabajo({ estado_actual: { puntos: [], mediciones: [{ codigo: 'TENSION', valor: '12.50' }], observaciones: '', materiales: '', sin_materiales: false, fotos: 0, firma: false } }), AHORA);
+  const t = T.iniciar(nuevoTrabajo({ estado_actual: { puntos: [], mediciones: [{ codigo: 'TENSION', valor: '12.50' }], observaciones: '', materiales: '', sin_materiales: false, fotos: 0, firma: false } }), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   assert.throws(() => T.registrarMedicion(t, 'TENSION', ''), /no se puede borrar/);
   assert.equal(T.registrarMedicion(t, 'TENSION', '13').local.mediciones.TENSION, '13');
 });
 
 test('una firma obsoleta del servidor no se da por vigente', () => {
-  const t = T.iniciar(nuevoTrabajo({ estado_actual: { puntos: [], mediciones: [], observaciones: '', materiales: '', sin_materiales: false, fotos: 0, firma: true, firma_resumen: null } }), AHORA);
+  const t = T.iniciar(nuevoTrabajo({ estado_actual: { puntos: [], mediciones: [], observaciones: '', materiales: '', sin_materiales: false, fotos: 0, firma: true, firma_resumen: null } }), AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' });
   assert.equal(T.firmaVigente(t), false);
   assert.equal(T.edicionPermitida(t, 'FIRMA'), true);
   assert.ok(T.faltantes(t).includes('El resumen cambió después de la firma: recoge la firma de nuevo'));
@@ -178,8 +178,31 @@ test('una firma obsoleta del servidor no se da por vigente', () => {
 test('desmarcar una medición elimina sus valores locales', () => {
   const sin = nuevoTrabajo();
   sin.catalogo = { puntos: [], mediciones: [], mediciones_elegibles: [{ codigo: 'TENSION', etiqueta: 'Tensión', unidad: 'V', minimo: '0.00', maximo: '500.00' }] };
-  let t = T.elegirMediciones(T.iniciar(sin, AHORA), ['TENSION']);
+  let t = T.elegirMediciones(T.iniciar(sin, AHORA, { estado: 'NORMAL' }, { codigo: 'SP-1' }), ['TENSION']);
   t = T.registrarMedicion(t, 'TENSION', '12');
   t = T.elegirMediciones(t, []);
   assert.equal(t.local.mediciones, undefined);
+});
+
+test('iniciar exige el estado de llegada y «Otro» exige texto', () => {
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA), /estado en el que encuentras el equipo/);
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA, { estado: 'XX' }), /estado en el que encuentras el equipo/);
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA, { estado: 'OTRO', texto: '  ' }), /Describe el estado/);
+  const t = T.iniciar(nuevoTrabajo(), AHORA, { estado: 'OTRO', texto: ' Gotea ' }, { codigo: 'SP-1' });
+  assert.deepEqual(t.local.llegada, { estado: 'OTRO', texto: 'Gotea' });
+  assert.deepEqual(T.iniciar(nuevoTrabajo(), AHORA, { estado: 'NORMAL', texto: 'x' }, { codigo: 'SP-1' }).local.llegada, { estado: 'NORMAL', texto: '' });
+});
+
+test('iniciar exige identificar el equipo: código, QR o discrepancia con observación', () => {
+  const LL = { estado: 'NORMAL' };
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA, LL), /Identifica el equipo/);
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA, LL, { codigo: 'OTRO-9' }), /no coincide con el de la orden \(SP-1\)/);
+  assert.throws(() => T.iniciar(nuevoTrabajo(), AHORA, LL, { codigo: 'OTRO-9', continuar: true }), /describe la incidencia/);
+  assert.deepEqual(T.iniciar(nuevoTrabajo(), AHORA, LL, { codigo: ' sp-1 ' }).local.verificacion, { codigo: 'sp-1', continuar: false, nota: '' });
+  const d = T.iniciar(nuevoTrabajo(), AHORA, LL, { codigo: 'OTRO-9', continuar: true, nota: 'Es la unidad de al lado' });
+  assert.deepEqual(d.local.verificacion, { codigo: 'OTRO-9', continuar: true, nota: 'Es la unidad de al lado' });
+  const conId = nuevoTrabajo(); conId.equipo.id = 7;
+  assert.equal(T.equipoCoincide(conId, 'https://x.es/equipos/7/'), true);
+  assert.equal(T.equipoCoincide(conId, 'https://x.es/equipos/8/'), false);
+  assert.equal(T.equipoCoincide(nuevoTrabajo(), 'https://x.es/equipos/7/'), false);
 });

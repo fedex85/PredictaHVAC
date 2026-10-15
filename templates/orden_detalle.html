@@ -78,10 +78,18 @@
             {% if not orden.con_checklist %}<div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Checklist</dt><dd class="text-slate-200 font-medium">Sin checklist</dd></div>{% endif %}
             {% if decision_origen %}<div class="sm:col-span-2 flex justify-between gap-4 border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Origen</dt><dd class="text-slate-200 font-medium text-right">Incidencia Alta de {% if origen_visible %}<a href="{% url 'orden_detalle' decision_origen.punto.orden.id %}" class="text-cyan-400 hover:text-cyan-300">{{ decision_origen.punto.orden.codigo }}</a>{% else %}{{ decision_origen.punto.orden.codigo }}{% endif %} · {{ decision_origen.punto.texto }}</dd></div>{% endif %}
             {% if correctivas %}<div class="sm:col-span-2 flex justify-between gap-4 border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Correctivas</dt><dd class="text-right">{% for c in correctivas %}{% if c.visible %}<a href="{% url 'orden_detalle' c.id %}" class="text-cyan-400 hover:text-cyan-300 font-medium">{{ c.codigo }}</a>{% else %}<span class="text-slate-300 font-medium">{{ c.codigo }}</span>{% endif %} <span class="text-xs text-slate-500">({{ c.get_estado_display }})</span>{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
+            {% if orden.llegada %}<div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Estado de llegada</dt><dd class="text-slate-200 font-medium text-right">{{ orden.llegada_texto_completo }}</dd></div>{% endif %}
+            {% if orden.verificacion %}<div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Equipo verificado</dt><dd class="text-slate-200 font-medium text-right">{% if orden.verificacion == 'DISCREPANCIA' %}<span class="text-amber-300">Discrepancia: {{ orden.verificacion_detalle }}</span>{% else %}Sí ({{ orden.verificacion|lower }}){% endif %}</dd></div>{% endif %}
+            {% if proxima_texto and not en_ejecucion %}<div class="sm:col-span-2 flex justify-between gap-4 border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Próxima acción</dt><dd class="text-slate-200 font-medium text-right">{{ proxima_texto }}{% if orden.proxima_accion == 'REVISION' and orden.proxima_fecha %} · {{ orden.proxima_fecha|date:"d/m/Y" }}{% endif %}{% if orden.proxima_accion == 'CORRECTIVA' %} · {{ orden.proxima_texto }}{% endif %}{% if proxima_orden %} · <a href="{% url 'orden_detalle' proxima_orden.id %}" class="text-cyan-400 hover:text-cyan-300">{{ proxima_orden.codigo }}</a>{% endif %}</dd></div>{% endif %}
+            {% if original %}<div class="sm:col-span-2 flex justify-between gap-4 border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Continuación de</dt><dd class="text-slate-200 font-medium text-right">{% if original_visible %}<a href="{% url 'orden_detalle' original.id %}" class="text-cyan-400 hover:text-cyan-300">OT #{{ original.pk }}</a>{% else %}OT #{{ original.pk }}{% endif %}</dd></div>{% endif %}
             {% if orden.inicio %}<div class="flex justify-between border-b border-slate-800/80 pb-1.5"><dt class="text-slate-500">Tiempo efectivo</dt><dd class="text-slate-200 font-medium">{{ orden.tiempo_efectivo_texto }}</dd></div>{% endif %}
         </dl>
         <h3 class="text-sm font-semibold text-white mt-5 mb-1">Tarea a realizar</h3>
         <p class="text-sm text-slate-300 whitespace-pre-line">{{ orden.descripcion }}</p>
+        {% if orden.antecedente %}
+        <h3 class="text-sm font-semibold text-white mt-5 mb-1">Antecedente (bloqueado)</h3>
+        <p class="text-sm text-slate-400 whitespace-pre-line">{{ orden.antecedente }}</p>
+        {% endif %}
     </div>
 
     {% include 'partials/_incidencias_alta.html' %}
@@ -99,6 +107,20 @@
             {% endif %}
         </div>
         {% if pausa_activa %}<p class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">En pausa desde las {{ pausa_activa.desde|date:"H:i" }}: {{ pausa_activa.motivo }}</p>{% endif %}
+        <form method="post" action="{% url 'orden_proxima' orden.id %}" class="space-y-2 border border-slate-800 rounded-lg p-4">{% csrf_token %}
+            <h3 class="text-sm font-semibold text-white">Próxima acción</h3>
+            {% if proxima_orden %}<p class="text-xs text-emerald-300">{{ proxima_texto }}: {{ proxima_orden.codigo }} creada.</p>
+            {% elif not proxima_editable %}<p class="text-xs text-slate-400">{% if proxima_texto %}Elegida: {{ proxima_texto }}.{% elif orden.subsanacion_motivo %}No se cambia durante una subsanación.{% else %}Se elige después de recoger la firma del cliente.{% endif %}</p>
+            {% else %}
+            {% for radio in form_proxima.accion %}<label for="{{ radio.id_for_label }}" class="flex items-center space-x-2 text-sm text-slate-300"><span>{{ radio.tag }}</span><span>{{ radio.choice_label }}</span></label>{% endfor %}
+            <label for="{{ form_proxima.fecha.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_proxima.fecha.label }}</label>
+            {{ form_proxima.fecha }}
+            <label for="{{ form_proxima.texto.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_proxima.texto.label }}</label>
+            {{ form_proxima.texto }}
+            <p class="text-[11px] text-slate-500">«Cerrar sin acción» solo se permite sin incidencias abiertas. La revisión la confirma el gerente al aprobar; la correctiva se crea al enviar a aprobación.</p>
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 text-xs font-semibold rounded-lg transition">Guardar próxima acción</button>
+            {% endif %}
+        </form>
         <form id="form-ejecucion" method="post" action="{% url 'orden_guardar' orden.id %}" class="space-y-4">
             {% csrf_token %}
             <div>
@@ -220,13 +242,27 @@
         {% endif %}
 
         {% if puede_iniciar %}
-        <form method="post" action="{% url 'orden_iniciar' orden.id %}">{% csrf_token %}
+        <form method="post" action="{% url 'orden_iniciar' orden.id %}" class="space-y-2">{% csrf_token %}
+            <label for="{{ form_verificacion.equipo_codigo.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_verificacion.equipo_codigo.label }} *</label>
+            {{ form_verificacion.equipo_codigo }}
+            <p class="text-[11px] text-slate-500">Escanea el QR de la etiqueta con la cámara del móvil y pega aquí su contenido, o escribe el código ({{ orden.equipo.codigo_identificador }}).</p>
+            <label for="{{ form_verificacion.continuar_discrepancia.id_for_label }}" class="flex items-start space-x-2 text-xs text-slate-300"><span class="pt-0.5">{{ form_verificacion.continuar_discrepancia }}</span><span>{{ form_verificacion.continuar_discrepancia.label }}</span></label>
+            <label for="{{ form_verificacion.verificacion_nota.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_verificacion.verificacion_nota.label }}</label>
+            {{ form_verificacion.verificacion_nota }}
+            <label for="{{ form_llegada.llegada.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_llegada.llegada.label }} *</label>
+            {{ form_llegada.llegada }}
+            <label for="{{ form_llegada.llegada_texto.id_for_label }}" class="block text-xs font-medium text-slate-300">{{ form_llegada.llegada_texto.label }}</label>
+            {{ form_llegada.llegada_texto }}
             <button type="submit" {% if problema_cert %}disabled{% endif %} class="w-full px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition shadow-md shadow-cyan-600/20">Iniciar intervención</button>
         </form>
         {% endif %}
 
         {% if puede_aprobar %}
         <form method="post" action="{% url 'orden_aprobar' orden.id %}">{% csrf_token %}
+            {% if orden.proxima_accion == 'REVISION' %}
+            <label for="proxima-fecha" class="block text-xs font-medium text-slate-300 mb-1">Confirma la fecha de la próxima revisión (propuesta por el técnico)</label>
+            <input type="date" id="proxima-fecha" name="proxima_fecha" value="{{ orden.proxima_fecha|date:'Y-m-d' }}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 mb-2">
+            {% elif proxima_texto %}<p class="text-xs text-slate-400 mb-2">Próxima acción del técnico: {{ proxima_texto }}{% if proxima_orden %} ({{ proxima_orden.codigo }}){% endif %}.</p>{% endif %}
             <button type="submit" {% if n_pendientes_alta %}disabled{% endif %} class="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition">Aprobar y finalizar</button>
             {% if n_pendientes_alta %}<p class="mt-2 text-xs text-amber-300">{% if n_pendientes_alta == 1 %}Falta 1 incidencia Alta por resolver{% else %}Faltan {{ n_pendientes_alta }} incidencias Alta por resolver{% endif %}</p>{% endif %}
         </form>
@@ -254,6 +290,35 @@
         </form>
         {% elif motivo_no_cancelable %}
         <p class="text-xs text-slate-500">{{ motivo_no_cancelable }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if puede_continuar or puede_nota or notas_admin or envio_informe or destinatarios_informe %}
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-3">
+        <h2 class="text-base font-semibold text-white border-b border-slate-800 pb-3 mb-4">Gestión posterior</h2>
+        {% for n in notas_admin %}
+        <div class="border-b border-slate-800/80 pb-2"><p class="text-sm text-slate-200 whitespace-pre-line">{{ n.texto }}</p><p class="text-xs text-slate-500">{{ n.usuario_nombre }} · {{ n.creada_en|date:"d/m/Y H:i" }}</p></div>
+        {% endfor %}
+        {% if puede_nota %}
+        <form method="post" action="{% url 'orden_nota' orden.id %}" class="space-y-2">{% csrf_token %}
+            <label for="{{ form_nota.texto.id_for_label }}" class="block text-xs font-medium text-slate-300">Añadir nota administrativa</label>
+            {{ form_nota.texto }}
+            <button type="submit" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg transition">Guardar nota</button>
+        </form>
+        {% endif %}
+        {% if envio_informe or destinatarios_informe %}
+        <div class="border-t border-slate-800 pt-3 space-y-1">
+            <h3 class="text-sm font-semibold text-white">Informe al cliente</h3>
+            <p class="text-xs text-slate-400 break-words">Destinatarios guardados: {% if destinatarios_informe %}{{ destinatarios_informe|join:", " }}{% else %}ninguno{% endif %}</p>
+            {% if envio_informe %}<p class="text-xs {% if envio_informe.estado == 'FALLIDO' %}text-red-300{% elif envio_informe.estado == 'ENVIADO' %}text-emerald-300{% else %}text-amber-300{% endif %}">{% if envio_informe.estado == 'ENVIADO' %}Enviado el {{ envio_informe.enviado_en|date:"d/m/Y H:i" }}{% elif envio_informe.estado == 'FALLIDO' %}No se pudo enviar tras {{ envio_informe.intentos }} intentos: {{ envio_informe.ultimo_error }}{% else %}Pendiente de envío (intentos: {{ envio_informe.intentos }}){% endif %}</p>{% endif %}
+            {% if destinatarios_informe %}
+            <form method="post" action="{% url 'orden_reenviar_informe' orden.id %}">{% csrf_token %}<button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition">Reenviar informe</button></form>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% if puede_continuar %}
+        <a href="{% url 'orden_crear' %}?continuacion={{ orden.id }}" class="inline-block px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition">Crear OT de continuación</a>
         {% endif %}
     </div>
     {% endif %}

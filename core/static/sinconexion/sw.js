@@ -1,6 +1,6 @@
 // Service Worker de PredictaHVAC: deja disponible la pantalla sin conexión.
 // Estrategia: red primero y caché de respaldo, solo para estas rutas. No toca POST ni /media/.
-const CACHE = 'sinconexion-v8';
+const CACHE = 'sinconexion-v11';
 const PANTALLA = '/sin-conexion/';
 const ARCHIVOS_PRECARGA = [
   '/sin-conexion/',

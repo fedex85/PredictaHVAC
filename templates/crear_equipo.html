@@ -79,6 +79,15 @@
                             </select>
                         </div>
 
+                        <!-- Cliente / instalación -->
+                        <div class="sm:col-span-2">
+                            <label for="{{ form.instalacion.id_for_label }}" class="block text-xs font-medium text-slate-300 mb-1">Cliente / instalación</label>
+                            <select id="{{ form.instalacion.id_for_label }}" name="instalacion" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition">
+                                <option value="">Sin asignar</option>
+                                {% for valor, etiqueta in form.fields.instalacion.choices %}{% if valor %}<option value="{{ valor }}"{% if form.instalacion.value|stringformat:"s" == valor|stringformat:"s" %} selected{% endif %}>{{ etiqueta }}</option>{% endif %}{% endfor %}
+                            </select>
+                        </div>
+
                         <!-- Ubicación -->
                         <div>
                             <label for="ubicacion" class="block text-xs font-medium text-slate-300 mb-1">Ubicación / Área *</label>

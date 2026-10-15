@@ -128,13 +128,13 @@ def descargar(orden, request):
             'id': orden.id, 'codigo': orden.codigo, 'tipo': orden.tipo, 'tipo_texto': orden.get_tipo_display(),
             'descripcion': orden.descripcion, 'criticidad': orden.criticidad,
             'requiere_refrigerante': orden.requiere_refrigerante, 'con_checklist': orden.con_checklist,
-            'con_evidencias': orden.con_evidencias if orden.estado == OrdenTrabajo.EN_EJECUCION else orden.con_checklist,
+            'con_evidencias': orden.con_evidencias if orden.estado == OrdenTrabajo.EN_EJECUCION else True,
             'estado': orden.estado,
             'inicio': orden.inicio.isoformat() if orden.inicio else None,
             'fecha_programada': orden.fecha_programada.isoformat() if orden.fecha_programada else None,
             'subsanacion_motivo': orden.subsanacion_motivo, 'subsanacion_bloque': orden.subsanacion_bloque,
         },
-        'equipo': {'codigo': equipo.codigo_identificador, 'nombre': equipo.nombre,
+        'equipo': {'id': equipo.id, 'codigo': equipo.codigo_identificador, 'nombre': equipo.nombre,
                    'ubicacion': equipo.ubicacion, 'tipo': equipo.tipo},
         'catalogo': _catalogo(orden),
         'estado_actual': _estado_actual(orden),
@@ -191,6 +191,17 @@ def leer_paquete(texto):
         if inicio is None or timezone.is_naive(inicio):
             raise Rechazo('La hora de inicio no es válida o no indica la zona horaria.')
         paquete['inicio'] = inicio
+    if datos.get('llegada') is not None:
+        ll = datos['llegada']
+        if not isinstance(ll, dict):
+            raise Rechazo(MSG_PAQUETE)
+        paquete['llegada'] = (_cadena(ll.get('estado'), 'estado'), _cadena(ll.get('texto'), 'texto'))
+    if datos.get('verificacion') is not None:
+        v = datos['verificacion']
+        if not isinstance(v, dict):
+            raise Rechazo(MSG_PAQUETE)
+        paquete['verificacion'] = {'codigo': _cadena(v.get('codigo'), 'codigo'), 'nota': _cadena(v.get('nota'), 'nota'),
+                                   'continuar': bool(v.get('continuar')), 'estricto': False}
     if 'puntos' in datos:
         paquete['puntos'] = []
         for x in _lista(datos['puntos'], 'puntos', MAX_PUNTOS):
@@ -320,7 +331,8 @@ def _aplicar(orden, paquete, archivos, request, creados):
         if inicio < timezone.now() - ventana:
             raise Rechazo(f'La hora de inicio tiene más de {horas} horas de antigüedad. '
                           'Avisa a gestión: deberá revisar y registrar esta intervención.')
-        ordenes.iniciar(orden, request, inicio=inicio)
+        ordenes.iniciar(orden, request, inicio=inicio, llegada=paquete.get('llegada'),
+                        verificacion=paquete.get('verificacion'))
 
     if 'elegidas' in paquete and set(paquete['elegidas']) != set(orden.mediciones.values_list('codigo', flat=True)):
         ordenes.elegir_mediciones(orden, paquete['elegidas'], request)

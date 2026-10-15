@@ -1,7 +1,10 @@
+import re
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from core.models import Cliente, EquipoHVAC, Instalacion, separar_correos
 from core.models import EquipoHVAC, HistorialMantenimiento, OrdenTrabajo, PerfilUsuario
 
 
@@ -10,7 +13,7 @@ class EquipoHVACForm(forms.ModelForm):
     class Meta:
         model = EquipoHVAC
         fields = ['nombre', 'codigo_identificador', 'tipo', 'ubicacion', 'modelo', 'capacidad', 'refrigerante', 'fecha_instalacion',
-                  'periodicidad_meses']
+                  'periodicidad_meses', 'instalacion']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,7 +44,7 @@ class EquipoHVACEditForm(forms.ModelForm):
     class Meta:
         model = EquipoHVAC
         fields = ['nombre', 'codigo_identificador', 'tipo', 'ubicacion', 'modelo', 'capacidad',
-                  'refrigerante', 'estado', 'fecha_instalacion', 'periodicidad_meses']
+                  'refrigerante', 'estado', 'fecha_instalacion', 'periodicidad_meses', 'instalacion']
         widgets = {'fecha_instalacion': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
 
     def __init__(self, *args, **kwargs):
@@ -170,7 +173,9 @@ class OrdenTrabajoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['tecnico'].queryset = _tecnicos_activos()
-        self.fields['equipo'].queryset = EquipoHVAC.objects.order_by('codigo_identificador')
+        self.fields['equipo'].queryset = EquipoHVAC.objects.select_related('instalacion__cliente').order_by('codigo_identificador')
+        self.fields['equipo'].label_from_instance = (
+            lambda e: f'{e.nombre} ({e.codigo_identificador})' + (f' — {e.instalacion}' if e.instalacion_id else ''))
         _estilar(self)
 
     def clean(self):
@@ -189,6 +194,91 @@ class OrdenTrabajoForm(forms.ModelForm):
         if commit:
             orden.save()
         return orden
+
+
+class ClienteForm(forms.ModelForm):
+    class Meta:
+        model = Cliente
+        fields = ['nombre', 'destinatarios', 'telefono']
+        widgets = {'destinatarios': forms.Textarea(attrs={'rows': 2})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
+
+    def clean_destinatarios(self):
+        texto = self.cleaned_data.get('destinatarios', '')
+        validos = separar_correos(texto)
+        partes = [p for p in re.split(r'[,;\s]+', texto) if p.strip()]
+        if len(validos) != len({p.lower() for p in partes}):
+            raise forms.ValidationError('Hay correos con formato no válido.')
+        return '\n'.join(validos)
+
+
+class InstalacionForm(forms.ModelForm):
+    class Meta:
+        model = Instalacion
+        fields = ['cliente', 'nombre', 'direccion']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['cliente'].queryset = Cliente.objects.filter(activo=True)
+        _estilar(self)
+
+
+class LlegadaForm(forms.Form):
+    llegada = forms.ChoiceField(choices=[('', 'Selecciona…')] + OrdenTrabajo.LLEGADA_CHOICES, label='Estado de llegada del equipo')
+    llegada_texto = forms.CharField(required=False, max_length=255, label='Describe el estado (si es «Otro»)')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
+
+
+class VerificacionForm(forms.Form):
+    equipo_codigo = forms.CharField(required=False, max_length=300, label='Código del equipo o contenido de su QR')
+    continuar_discrepancia = forms.BooleanField(required=False, label='Continuar y reportar incidencia (el equipo no coincide)')
+    verificacion_nota = forms.CharField(required=False, max_length=200, label='Observación de la discrepancia')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
+
+
+class ProximaAccionForm(forms.Form):
+    accion = forms.ChoiceField(choices=OrdenTrabajo.PROXIMA_CHOICES, widget=forms.RadioSelect, label='Próxima acción')
+    fecha = forms.DateField(required=False, label='Fecha propuesta de la próxima revisión',
+                            widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'))
+    texto = forms.CharField(required=False, max_length=255, label='Descripción de la OT correctiva')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
+
+
+class EmergenciaForm(forms.Form):
+    """OT correctiva/emergencia que crea el propio técnico sobre un equipo que ya existe en el inventario."""
+    equipo = forms.ModelChoiceField(queryset=EquipoHVAC.objects.none(), label='Equipo')
+    motivo = forms.CharField(max_length=120, label='Motivo / avería')
+    descripcion = forms.CharField(max_length=500, widget=forms.Textarea(attrs={'rows': 3}), label='Descripción breve')
+    criticidad = forms.ChoiceField(choices=OrdenTrabajo.CRITICIDAD_CHOICES, initial='MEDIA', label='Criticidad')
+    requiere_refrigerante = forms.BooleanField(required=False, label='Manipula refrigerante (gases fluorados)')
+    sin_checklist = forms.BooleanField(required=False, label='Sin checklist')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['equipo'].queryset = EquipoHVAC.objects.select_related('instalacion__cliente').order_by('codigo_identificador')
+        self.fields['equipo'].label_from_instance = (
+            lambda e: f'{e.nombre} ({e.codigo_identificador})' + (f' — {e.instalacion}' if e.instalacion_id else ''))
+        _estilar(self)
+
+
+class NotaAdministrativaForm(forms.Form):
+    texto = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), max_length=2000, label='Nota administrativa')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
 
 
 class AsignarOrdenForm(forms.Form):

@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import date, timedelta
 
@@ -5,6 +6,59 @@ from django.conf import settings
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
+
+class Cliente(models.Model):
+    """Cliente final al que se presta el servicio. `destinatarios` son los correos que reciben el informe de cada OT."""
+    nombre = models.CharField(max_length=150, unique=True)
+    destinatarios = models.TextField('Correos del informe', blank=True,
+                                     help_text='Uno o varios correos separados por coma, punto y coma o salto de línea.')
+    telefono = models.CharField(max_length=40, blank=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+    @property
+    def lista_destinatarios(self):
+        return separar_correos(self.destinatarios)
+
+
+class Instalacion(models.Model):
+    """Lugar físico de un cliente (sede, edificio) donde están los equipos."""
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='instalaciones')
+    nombre = models.CharField(max_length=150)
+    direccion = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['cliente__nombre', 'nombre']
+        verbose_name = 'instalación'
+        verbose_name_plural = 'instalaciones'
+        constraints = [models.UniqueConstraint(fields=['cliente', 'nombre'], name='instalacion_unica_por_cliente')]
+
+    def __str__(self):
+        return f'{self.cliente.nombre} · {self.nombre}'
+
+
+def separar_correos(texto):
+    """Lista de correos válidos y sin repetir de un texto libre."""
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    vistos, lista = set(), []
+    for parte in re.split(r'[,;\s]+', texto or ''):
+        parte = parte.strip()
+        if not parte or parte.lower() in vistos:
+            continue
+        try:
+            validate_email(parte)
+        except ValidationError:
+            continue
+        vistos.add(parte.lower())
+        lista.append(parte)
+    return lista
+
 
 class EquipoHVAC(models.Model):
     TIPO_CHOICES = [
@@ -47,6 +101,8 @@ class EquipoHVAC(models.Model):
     PERIODICIDAD_CHOICES = [(1, 'Cada mes'), (3, 'Cada 3 meses'), (6, 'Cada 6 meses'), (12, 'Cada año')]
     periodicidad_meses = models.PositiveSmallIntegerField('Preventivo cada', null=True, blank=True,
                                                           choices=PERIODICIDAD_CHOICES)
+    instalacion = models.ForeignKey(Instalacion, null=True, blank=True, on_delete=models.PROTECT,
+                                    related_name='equipos', verbose_name='Cliente / instalación')
     creado_en = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -235,6 +291,26 @@ class OrdenTrabajo(models.Model):
                                      related_name='correctivas', verbose_name='Orden de origen')
     subsanacion_bloque = models.CharField(max_length=20, blank=True)
     descargada_en = models.DateTimeField('Descargada para trabajo sin conexión', null=True, blank=True)
+    llegada = models.CharField('Estado de llegada', max_length=20, blank=True)
+    llegada_texto = models.CharField('Detalle del estado de llegada', max_length=255, blank=True)
+    continuacion_de = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL,
+                                        related_name='+', verbose_name='Continuación de')
+    antecedente = models.TextField('Antecedente (incidente de la orden original)', blank=True)
+    destinatarios_informe = models.TextField('Destinatarios del informe (instantánea al finalizar)', blank=True)
+    verificacion = models.CharField('Verificación del equipo', max_length=15, blank=True)
+    verificacion_detalle = models.CharField(max_length=255, blank=True)
+    proxima_accion = models.CharField('Próxima acción', max_length=15, blank=True)
+    proxima_fecha = models.DateField('Fecha propuesta para la próxima revisión', null=True, blank=True)
+    proxima_texto = models.CharField('Descripción de la OT correctiva', max_length=255, blank=True)
+    proxima_orden = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+                                      verbose_name='OT creada por la próxima acción')
+
+    PROXIMA_CHOICES = [('REVISION', 'Programar próxima revisión'), ('CORRECTIVA', 'Crear OT correctiva'),
+                       ('NINGUNA', 'Cerrar sin acción')]
+
+    LLEGADA_CHOICES = [('NORMAL', 'Normal'), ('RUIDO', 'Ruido anómalo del compresor'),
+                       ('FUGA', 'Fuga visible de líquido/aceite'), ('NO_ARRANCA', 'No arranca'),
+                       ('CARCASA', 'Carcasa/exterior deteriorado'), ('OTRO', 'Otro')]
 
     BLOQUES = [('CHECKLIST', 'Checklist'), ('MEDICIONES', 'Mediciones'),
                ('OBSERVACIONES', 'Observaciones técnicas'), ('MATERIALES', 'Materiales'),
@@ -249,6 +325,13 @@ class OrdenTrabajo(models.Model):
     @property
     def codigo(self):
         return f"OT-{self.pk:04d}" if self.pk else 'OT-nueva'
+
+    @property
+    def llegada_texto_completo(self):
+        if not self.llegada:
+            return ''
+        nombre = dict(self.LLEGADA_CHOICES).get(self.llegada, self.llegada)
+        return f'{nombre}: {self.llegada_texto}' if self.llegada == 'OTRO' and self.llegada_texto else nombre
 
     @property
     def tiene_checklist(self):
@@ -426,3 +509,40 @@ class SincronizacionOT(models.Model):
 
     def __str__(self):
         return f"{self.orden.codigo} · {self.paquete_id}"
+
+
+class NotaAdministrativa(models.Model):
+    """Nota histórica que gestión añade a una orden finalizada o cancelada (no toca los datos técnicos)."""
+    orden = models.ForeignKey(OrdenTrabajo, on_delete=models.CASCADE, related_name='notas_admin')
+    usuario_nombre = models.CharField(max_length=150)
+    texto = models.TextField()
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['creada_en', 'id']
+
+
+class EnvioInforme(models.Model):
+    """Envío del informe PDF de una OT finalizada: 1 intento inicial + 2 reintentos automáticos."""
+    PENDIENTE, ENVIADO, FALLIDO = 'PENDIENTE', 'ENVIADO', 'FALLIDO'
+    ESTADO_CHOICES = [(PENDIENTE, 'Pendiente'), (ENVIADO, 'Enviado'), (FALLIDO, 'Fallido')]
+    MAX_INTENTOS = 3
+
+    orden = models.OneToOneField(OrdenTrabajo, on_delete=models.CASCADE, related_name='envio_informe')
+    estado = models.CharField(max_length=10, choices=ESTADO_CHOICES, default=PENDIENTE, db_index=True)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    ultimo_error = models.CharField(max_length=255, blank=True)
+    ultimo_intento = models.DateTimeField(null=True, blank=True)
+    enviado_en = models.DateTimeField(null=True, blank=True)
+
+
+class Aviso(models.Model):
+    """Aviso dirigido a un usuario de gestión (se muestra en la aplicación y se envía también por correo)."""
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='avisos')
+    texto = models.CharField(max_length=255)
+    orden = models.ForeignKey(OrdenTrabajo, null=True, blank=True, on_delete=models.CASCADE, related_name='+')
+    creado_en = models.DateTimeField(auto_now_add=True)
+    leido = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ['-creado_en', '-id']

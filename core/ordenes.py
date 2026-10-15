@@ -1,11 +1,13 @@
 """Reglas del ciclo de vida de las órdenes de trabajo (Pendiente -> ... -> Finalizada / Cancelada)."""
+import re
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from core import auditoria, checklists
-from core.models import (EventoOT, HistorialMantenimiento, MedicionOT, OrdenTrabajo, PausaOT, PuntoChecklistOT,
+from core.models import (EquipoHVAC, EventoOT, HistorialMantenimiento, MedicionOT, NotaAdministrativa, OrdenTrabajo, PausaOT, PuntoChecklistOT,
                          RegistroActividad)
 from core.permisos import ADMIN, ROLES_GESTION, TECNICO, rol_de
 
@@ -103,9 +105,44 @@ def crear(orden, request):
     orden.estado = OrdenTrabajo.ASIGNADA if orden.tecnico_id else OrdenTrabajo.PENDIENTE
     orden.save()
     texto = f"Creada y asignada a {nombre_de(orden.tecnico)}" if orden.tecnico_id else 'Creada sin técnico (Pendiente)'
+    if orden.continuacion_de_id:
+        texto += f'. Continuación de {orden.continuacion_de.codigo}'
     EventoOT.objects.create(orden=orden, usuario_nombre=nombre_de(request.user), texto=texto)
     auditoria.registrar(RegistroActividad.ORDEN_CREADA, request,
                         detalle=f"{orden.codigo} · {orden.equipo.codigo_identificador} · {orden.get_estado_display()}")
+    return orden
+
+
+def antecedente_de(original):
+    """Incidente de la orden original que se copia como antecedente histórico bloqueado de la continuación."""
+    texto = (original.observaciones or '').strip() or (original.descripcion or '').strip()
+    return f'{original.codigo} · {original.equipo.codigo_identificador}: {texto}'
+
+
+@transaction.atomic
+def añadir_nota(orden, texto, request):
+    """Nota administrativa/histórica de gestión sobre una orden cerrada; no modifica datos técnicos."""
+    _exigir_gestion(request)
+    _exigir_estado(orden, OrdenTrabajo.FINALIZADA, OrdenTrabajo.CANCELADA)
+    texto = (texto or '').strip()
+    if not texto:
+        raise ReglaError('Escribe la nota.')
+    NotaAdministrativa.objects.create(orden=orden, usuario_nombre=nombre_de(request.user), texto=texto[:2000])
+    _evento(orden, request, 'Nota administrativa añadida')
+
+
+@transaction.atomic
+def crear_emergencia(orden, request):
+    """OT correctiva/emergencia creada por el propio técnico: nace Asignada a él y se avisa a gestión."""
+    if rol_de(request.user) != TECNICO:
+        raise ReglaError('Solo un técnico crea órdenes de emergencia desde el móvil.')
+    orden.tecnico = request.user
+    orden.tipo = 'CORRECTIVO'
+    crear(orden, request)
+    _evento(orden, request, 'Creada por el técnico como correctiva/emergencia sobre un equipo del inventario')
+    from core import avisos
+    avisos.notificar_gestion(f'{nombre_de(request.user)} creó la OT de emergencia {orden.codigo} sobre '
+                             f'{orden.equipo.codigo_identificador} (criticidad {orden.get_criticidad_display().lower()}).', orden)
     return orden
 
 
@@ -128,9 +165,55 @@ def asignar(orden, tecnico, request):
     _evento(orden, request, f'Asignada a {nombre_de(tecnico)}')
 
 
+def validar_llegada(estado, texto=''):
+    """Estado de llegada obligatorio; «Otro» exige texto. Devuelve (estado, texto) limpios."""
+    estado, texto = (estado or '').strip(), (texto or '').strip()
+    if estado not in dict(OrdenTrabajo.LLEGADA_CHOICES):
+        raise ReglaError('Indica el estado en el que encuentras el equipo al llegar.')
+    if estado == 'OTRO' and not texto:
+        raise ReglaError('Describe el estado de llegada («Otro»).')
+    return estado, (texto[:255] if estado == 'OTRO' else '')
+
+
+def identificar_equipo(texto):
+    """Equipo que corresponde a lo leído del QR (URL de su ficha) o escrito a mano (su código). None si no existe."""
+    texto = (texto or '').strip()
+    if not texto:
+        return None
+    m = re.search(r'/equipos/(\d+)/?(?:[?#].*)?$', texto)
+    if m:
+        return EquipoHVAC.objects.filter(pk=int(m.group(1))).first()
+    return EquipoHVAC.objects.filter(codigo_identificador__iexact=texto).first()
+
+
+def _verificar_equipo(orden, verificacion):
+    """Devuelve (modo, detalle). `verificacion` = {'codigo', 'continuar', 'nota', 'estricto'}.
+
+    Estricto (web): una discrepancia bloquea salvo «continuar y reportar incidencia» con observación.
+    No estricto (paquete sin conexión): el teléfono ya bloqueó; el servidor registra lo que declaró sin rechazar el trabajo."""
+    codigo = (verificacion.get('codigo') or '').strip()
+    nota = (verificacion.get('nota') or '').strip()
+    continuar, estricto = bool(verificacion.get('continuar')), verificacion.get('estricto', True)
+    identificado = identificar_equipo(codigo)
+    if identificado is not None and identificado.pk == orden.equipo_id:
+        return ('QR' if '/' in codigo else 'MANUAL'), identificado.codigo_identificador
+    if estricto:
+        if not codigo and not continuar:
+            raise ReglaError('Identifica el equipo (escanea su QR o escribe su código) antes de iniciar.')
+        if not continuar:
+            raise ReglaError(
+                f'El equipo identificado ({identificado.codigo_identificador if identificado else codigo}) no coincide con el de la '
+                f'orden ({orden.equipo.codigo_identificador}). Vuelve a escanear, busca manualmente o continúa y reporta una incidencia.')
+        if not nota:
+            raise ReglaError('Para continuar con un equipo distinto describe la incidencia en la observación.')
+    quien = identificado.codigo_identificador if identificado else (codigo or 'sin identificar')
+    return 'DISCREPANCIA', f'OT: {orden.equipo.codigo_identificador}; identificado: {quien}. {nota or "Sin observación."}'[:255]
+
+
 @transaction.atomic
-def iniciar(orden, request, inicio=None):
-    """Inicia la intervención. `inicio` (con zona horaria) es la hora real cuando se empezó sin conexión."""
+def iniciar(orden, request, inicio=None, llegada=None, verificacion=None):
+    """Inicia la intervención. `inicio` (con zona horaria) es la hora real cuando se empezó sin conexión.
+    `llegada` = (estado, texto); solo falta en paquetes sin conexión de versiones anteriores de la app."""
     orden.refresh_from_db()
     _exigir_estado(orden, OrdenTrabajo.ASIGNADA)
     if orden.tecnico_id != request.user.id:
@@ -140,8 +223,15 @@ def iniciar(orden, request, inicio=None):
     if problema:
         raise ReglaError(f'No se puede iniciar la intervención. {problema} '
                          'Esta intervención requiere manipular refrigerante.')
+    if llegada is not None:
+        llegada = validar_llegada(*llegada)
+    verificado = _verificar_equipo(orden, verificacion) if verificacion is not None else None
     orden.estado, orden.inicio = OrdenTrabajo.EN_EJECUCION, inicio or timezone.now()
-    orden.con_evidencias = orden.con_checklist  # sin checklist no hay resumen que firmar
+    orden.con_evidencias = True  # toda OT lleva 3 fotos y las dos firmas, también sin checklist
+    if llegada:
+        orden.llegada, orden.llegada_texto = llegada
+    if verificado:
+        orden.verificacion, orden.verificacion_detalle = verificado
     orden.save()
     texto = 'Intervención iniciada'
     if inicio:
@@ -150,11 +240,22 @@ def iniciar(orden, request, inicio=None):
         segundos = max(0, int((recibido - inicio).total_seconds()))
         texto += (f' sin conexión (inicio declarado {timezone.localtime(inicio):%d/%m %H:%M}, '
                   f'recibido {timezone.localtime(recibido):%d/%m %H:%M}, diferencia {segundos // 3600} h {segundos % 3600 // 60} min)')
+    if llegada:
+        texto += f'. Estado de llegada: {orden.llegada_texto_completo}'
+    if verificado:
+        texto += ('. Equipo verificado por ' + ('QR' if verificado[0] == 'QR' else 'código')) if verificado[0] != 'DISCREPANCIA' \
+            else '. DISCREPANCIA de equipo'
     if orden.con_checklist:
         puntos, mediciones = generar_checklist(orden)
         if puntos or mediciones:
             texto += f'. Checklist generado: {puntos} puntos y {mediciones} mediciones'
     _evento(orden, request, texto)
+    if verificado and verificado[0] == 'DISCREPANCIA':
+        EventoOT.objects.create(orden=orden, usuario_nombre=nombre_de(request.user),
+                                texto=f'Discrepancia de equipo: {verificado[1]}'[:255])
+        from core import avisos
+        avisos.notificar_gestion(f'{orden.codigo}: el técnico {nombre_de(request.user)} inició la orden con un equipo '
+                                 f'distinto al previsto ({orden.equipo.codigo_identificador}). Revisa el historial.', orden)
 
 
 @transaction.atomic
@@ -340,6 +441,64 @@ def guardar_ejecucion(orden, observaciones, materiales, sin_materiales, request)
     auditoria.registrar(RegistroActividad.ORDEN_ACTUALIZADA, request, detalle=f'{orden.codigo}: datos de la intervención guardados')
 
 
+def incidencias_abiertas(orden):
+    """Puntos del checklist con incidencia (de cualquier gravedad): impiden «cerrar sin acción»."""
+    return [p for p in orden.puntos.all() if p.resultado == PuntoChecklistOT.INCIDENCIA]
+
+
+def problema_proxima_accion(orden):
+    """Motivo por el que la próxima acción elegida no es válida (o falta); None si está bien."""
+    accion = orden.proxima_accion
+    if accion not in dict(OrdenTrabajo.PROXIMA_CHOICES):
+        return 'Elige la próxima acción: programar revisión, crear OT correctiva o cerrar sin acción'
+    if accion == 'REVISION' and not orden.proxima_fecha:
+        return 'Indica la fecha propuesta para la próxima revisión'
+    if accion == 'CORRECTIVA' and not (orden.proxima_texto.strip() or orden.proxima_orden_id):
+        return 'Describe la OT correctiva que hay que crear'
+    if accion == 'NINGUNA' and incidencias_abiertas(orden):
+        return 'No se puede cerrar sin acción: hay incidencias abiertas en el checklist'
+    return None
+
+
+@transaction.atomic
+def elegir_proxima_accion(orden, accion, fecha, texto, request):
+    """Tras la firma, el técnico decide qué pasa después. La OT correctiva se crea al enviar a aprobación."""
+    orden.refresh_from_db()
+    _exigir_tecnico(orden, request)
+    _exigir_estado(orden, OrdenTrabajo.EN_EJECUCION)
+    if orden.subsanacion_motivo:
+        raise ReglaError('En una subsanación no se cambia la próxima acción.')
+    if orden.proxima_orden_id:
+        raise ReglaError('Ya se creó la OT correctiva: la próxima acción no se puede cambiar.')
+    if accion not in dict(OrdenTrabajo.PROXIMA_CHOICES):
+        raise ReglaError('Elige una de las tres opciones.')
+    hoy = timezone.localdate()
+    if accion == 'REVISION':
+        if fecha is None:
+            raise ReglaError('Indica la fecha propuesta para la próxima revisión.')
+        if fecha < hoy or fecha > hoy.replace(year=hoy.year + 3):
+            raise ReglaError('La fecha de la próxima revisión debe estar entre hoy y dentro de tres años.')
+    texto = (texto or '').strip()
+    if accion == 'CORRECTIVA' and not texto:
+        raise ReglaError('Describe la OT correctiva que hay que crear.')
+    orden.proxima_accion = accion
+    orden.proxima_fecha = fecha if accion == 'REVISION' else None
+    orden.proxima_texto = texto[:255] if accion == 'CORRECTIVA' else ''
+    problema = problema_proxima_accion(orden)
+    if problema:
+        raise ReglaError(problema)
+    orden.save()
+    _evento(orden, request, f'Próxima acción: {dict(OrdenTrabajo.PROXIMA_CHOICES)[accion]}'
+            + (f' ({fecha:%d/%m/%Y})' if accion == 'REVISION' else ''))
+
+
+def _crear_derivada(orden, request, tipo, descripcion, fecha=None, origen=False):
+    nueva = OrdenTrabajo(equipo=orden.equipo, tipo=tipo, descripcion=descripcion, criticidad=orden.criticidad,
+                         requiere_refrigerante=orden.requiere_refrigerante, fecha_programada=fecha,
+                         orden_origen=orden if origen else None)
+    return crear(nueva, request)
+
+
 def validar_envio(orden):
     """Lista de motivos que impiden enviar la OT a aprobación (vacía si puede enviarse)."""
     problemas = []
@@ -368,6 +527,10 @@ def validar_envio(orden):
             problemas.append('Falta la firma del técnico')
         elif firma_tec == 'obsoleta':
             problemas.append('El resumen cambió después de tu firma: firma de nuevo como técnico')
+    if orden.con_evidencias:
+        problema = problema_proxima_accion(orden)
+        if problema:
+            problemas.append(problema)
     if not orden.observaciones.strip():
         if not puntos:
             problemas.append('Las observaciones técnicas son obligatorias: OT sin checklist.')
@@ -390,14 +553,25 @@ def enviar(orden, request):
     if orden.con_evidencias:
         from core import evidencias
         firma_conservada = evidencias.fijar_firma_conservada(orden)
+    if orden.con_evidencias and orden.proxima_accion == 'CORRECTIVA' and not orden.proxima_orden_id:
+        correctiva = _crear_derivada(orden, request, 'CORRECTIVO', orden.proxima_texto, origen=True)
+        orden.proxima_orden = correctiva
+        _evento(orden, request, f'Próxima acción: creada la OT correctiva {correctiva.codigo} (Pendiente de asignación)')
     orden.estado = OrdenTrabajo.PENDIENTE_APROBACION
     orden.subsanacion_motivo, orden.subsanacion_bloque = '', ''
     orden.save()
     _evento(orden, request, 'Enviada a aprobación' + ('. Firma del cliente conservada tras la subsanación' if firma_conservada else ''))
+    if getattr(settings, 'APROBACION_AUTOMATICA', False):
+        from core import incidencias
+        if not incidencias.pendientes_alta(orden):
+            _finalizar(orden, request, 'Aprobada automáticamente (aprobación automática activada en la empresa)')
+            return
+    from core import avisos
+    avisos.notificar_gestion(f'{orden.codigo} ({orden.equipo.codigo_identificador}) espera tu aprobación.', orden)
 
 
 @transaction.atomic
-def aprobar(orden, request):
+def aprobar(orden, request, fecha_revision=None):
     _bloquear(orden)
     _exigir_gestion(request)
     _exigir_estado(orden, OrdenTrabajo.PENDIENTE_APROBACION)
@@ -406,9 +580,20 @@ def aprobar(orden, request):
     if pendientes:
         raise ReglaError('Falta 1 incidencia Alta por resolver' if pendientes == 1
                          else f'Faltan {pendientes} incidencias Alta por resolver')
+    if orden.proxima_accion == 'REVISION':
+        fecha_revision = fecha_revision or orden.proxima_fecha
+        if fecha_revision is None or fecha_revision < timezone.localdate():
+            raise ReglaError('Confirma una fecha válida (hoy o posterior) para la próxima revisión.')
+    _finalizar(orden, request, 'Aprobada y finalizada', fecha_revision)
+
+
+def _finalizar(orden, request, texto_evento, fecha_revision=None):
+    from core import incidencias
     descripcion = f"[{orden.codigo}] {orden.descripcion}\n\nObservaciones: {orden.observaciones.strip()}"
     if orden.materiales.strip():
         descripcion += f"\nMateriales: {orden.materiales.strip()}"
+    if orden.llegada:
+        descripcion += f"\nEstado de llegada: {orden.llegada_texto_completo}"
     puntos = list(orden.puntos.all())
     if puntos:
         graves = {g: sum(1 for p in puntos if p.gravedad == g) for g, _ in PuntoChecklistOT.GRAVEDADES}
@@ -426,7 +611,17 @@ def aprobar(orden, request):
         fecha_mantenimiento=timezone.localdate(), tecnico_responsable=nombre_de(orden.tecnico))
     orden.estado, orden.fin = OrdenTrabajo.FINALIZADA, timezone.now()
     orden.save()
-    _evento(orden, request, 'Aprobada y finalizada. Registrada en el historial del equipo')
+    _evento(orden, request, f'{texto_evento}. Registrada en el historial del equipo')
+    if orden.proxima_accion == 'REVISION':
+        fecha = fecha_revision or orden.proxima_fecha
+        if fecha and fecha >= timezone.localdate():
+            revision = _crear_derivada(orden, request, 'PREVENTIVO', f'Próxima revisión programada tras {orden.codigo}.', fecha)
+            orden.proxima_orden = revision
+            orden.proxima_fecha = fecha
+            orden.save(update_fields=['proxima_orden', 'proxima_fecha'])
+            _evento(orden, request, f'Próxima revisión confirmada para el {fecha:%d/%m/%Y}: {revision.codigo}')
+    from core import correo_informe
+    correo_informe.preparar(orden)
 
 
 @transaction.atomic

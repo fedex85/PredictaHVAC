@@ -639,7 +639,8 @@ class SincronizarEvidenciasTests(SincronizacionBase):
         self.assertEqual((datos['firma'], datos['firma_tecnico']), ('guardada', 'guardada'))
         self.assertEqual(datos['firma_tecnico_estado'], 'vigente')
         self.assertEqual(datos['firma_tecnico_resumen'], self.resumen_cliente())
-        self.assertEqual(datos['faltan'], [])
+        # La próxima acción se elige con conexión al enviar a aprobación
+        self.assertEqual(datos['faltan'], ['Elige la próxima acción: programar revisión, crear OT correctiva o cerrar sin acción'])
 
     def test_firma_del_tecnico_sin_firma_del_cliente_se_descarta_con_aviso(self):
         o = self.preparar()
@@ -738,8 +739,10 @@ class SincronizarEvidenciasTests(SincronizacionBase):
         r = self.enviar(o, self.completo(firma=firma), fotos=self.fotos(3), usuario=self.tec)
         self.assertEqual(r.status_code, 200, r.content)
         # Sin firma del técnico en el paquete, es lo único que falta tras sincronizar.
-        self.assertEqual(r.json()['faltan'], ['Falta la firma del técnico'])
+        self.assertEqual(r.json()['faltan'], ['Falta la firma del técnico', 'Elige la próxima acción: programar revisión, crear OT correctiva o cerrar sin acción'])
         evidencias.guardar_firma_tecnico(o, png_en_base64(), self.peticion(self.tec))
+        o.refresh_from_db()
+        ordenes.elegir_proxima_accion(o, 'NINGUNA', None, '', self.peticion(self.tec))
         o.refresh_from_db()
         self.assertEqual(ordenes.validar_envio(o), [])
         ordenes.enviar(o, self.peticion(self.tec))
