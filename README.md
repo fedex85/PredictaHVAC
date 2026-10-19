@@ -114,6 +114,12 @@ Detalle completo en [docs/ESTADO_Y_PENDIENTES.md](docs/ESTADO_Y_PENDIENTES.md).
 
 ---
 
+## Licencia
+
+© 2026 Federico Serra. Todos los derechos reservados. El código se muestra para consulta; para usarlo, copiarlo o adaptarlo hace falta autorización por escrito. Ver [LICENSE](LICENSE).
+
+---
+
 <details>
 <summary><strong>Para el equipo técnico</strong></summary>
 
