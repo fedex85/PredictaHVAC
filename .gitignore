@@ -11,3 +11,9 @@ _respaldos/
 # Fuera del repositorio (no deben llegar al VPS): copias antiguas de plantillas y utilidades de desarrollo
 docs/backup_templates_pre_menu_unificado/
 probar_groq.py
+
+# Notas internas de desarrollo y prototipo (se conservan en el disco, fuera del repositorio)
+_archivo_interno/
+docs/superpowers/
+CAMBIOS_v5.md
+Predicta_prototipo_pantallas_v5.html
