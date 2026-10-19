@@ -39,8 +39,14 @@ def dashboard_view(request):
     equipos_fuera_servicio = EquipoHVAC.objects.filter(estado='FUERA_SERVICIO').count()
     
     servicios_recientes = HistorialMantenimiento.objects.select_related('equipo').order_by('-fecha_mantenimiento')[:5]
+    proximas_ordenes = (OrdenTrabajo.objects.select_related('equipo')
+                        .filter(estado__in=[OrdenTrabajo.PENDIENTE, OrdenTrabajo.ASIGNADA, OrdenTrabajo.EN_EJECUCION],
+                                fecha_programada__gte=timezone.localdate())
+                        .order_by('fecha_programada', 'id')[:3])
 
     contexto = {
+        'porcentaje_operativos': round(100 * equipos_operativos / total_equipos) if total_equipos else 0,
+        'proximas_ordenes': proximas_ordenes,
         'total_equipos': total_equipos,
         'equipos_operativos': equipos_operativos,
         'equipos_mantenimiento': equipos_mantenimiento,
