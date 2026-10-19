@@ -16,6 +16,7 @@
 
 **Plataforma**
 - Roles Administrador / Gerente / Técnico; PWA con trabajo sin conexión y sincronización.
+- Etiquetas QR imprimibles (6 × 6 cm) para cada equipo, con enlace a su ficha.
 - Informes PDF con sello de integridad de las firmas.
 - Asistente con IA (Groq) con límites de uso.
 
@@ -34,8 +35,7 @@
 - [ ] **Manual de usuario** para técnico y gerente.
 
 ### Prioridad media
-- [ ] Escáner QR dentro de la app para verificar el equipo (hoy el código se escribe o se pega).
-- [ ] Generador de etiquetas QR imprimibles para los equipos.
+- [ ] Escáner QR dentro de la app para verificar el equipo con la cámara (hoy el código del equipo se escribe o se pega; las etiquetas QR ya se pueden imprimir). Plan: botón «Escanear» junto al campo de código, librería de lectura incluida en el proyecto y en la caché sin conexión, sin cambios en el servidor.
 - [ ] Selectores en cascada Cliente → Instalación → Equipo al crear una OT (incómodo con muchos equipos).
 - [ ] Panel o aviso cuando fallen los envíos de correo (hoy el estado se consulta en `EnvioInforme`).
 - [ ] Auditoría de seguridad externa antes de manejar datos de clientes ajenos.
@@ -49,7 +49,7 @@
 
 | Área | Estado |
 |---|---|
-| Lógica de OT, permisos, sincronización | Pruebas automáticas (727 Python / 94 JS en la última ejecución) |
+| Lógica de OT, permisos, sincronización | Pruebas automáticas (729 Python / 94 JS en la última ejecución) |
 | Uso en móvil y PC | Comprobado manualmente por el autor, sin incidencias |
 | Trabajo sin conexión con mala red real | Pendiente de piloto |
 | Envío de correo en producción | Pendiente de configurar SMTP del cliente |
